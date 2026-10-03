@@ -1,0 +1,269 @@
+@import 'tailwindcss';
+
+/* ---------- Fuentes (solo subset latino, servidas desde el propio sitio) ---------- */
+@font-face {
+  font-family: 'Bodoni Moda Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 900;
+  src: url('@fontsource-variable/bodoni-moda/files/bodoni-moda-latin-opsz-normal.woff2') format('woff2-variations');
+}
+@font-face {
+  font-family: 'Bodoni Moda Variable';
+  font-style: italic;
+  font-display: swap;
+  font-weight: 400 900;
+  src: url('@fontsource-variable/bodoni-moda/files/bodoni-moda-latin-opsz-italic.woff2') format('woff2-variations');
+}
+@font-face {
+  font-family: 'Hanken Grotesk Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/hanken-grotesk/files/hanken-grotesk-latin-wght-normal.woff2')
+    format('woff2-variations');
+}
+
+/* ---------- Tokens de diseño ---------- */
+@theme {
+  /* Negro cálido de la marca y sus superficies */
+  --color-ink: oklch(0.145 0.006 70);
+  --color-ink-2: oklch(0.185 0.007 70);
+  --color-ink-3: oklch(0.27 0.009 72);
+  /* Marfil para las secciones claras */
+  --color-paper: oklch(0.968 0.011 85);
+  --color-paper-2: oklch(0.935 0.015 85);
+  --color-line: oklch(0.855 0.016 85);
+  /* Dorado: único acento */
+  --color-gold: oklch(0.79 0.125 84);
+  --color-gold-bright: oklch(0.88 0.11 90);
+  --color-gold-deep: oklch(0.52 0.1 75);
+  /* Errores de formulario: sobre marfil y sobre negro */
+  --color-danger: oklch(0.5 0.17 27);
+  --color-danger-bright: oklch(0.78 0.12 25);
+  /* Verde para "entregado" en el panel */
+  --color-ok: oklch(0.46 0.1 150);
+  /* Textos secundarios (AA sobre su fondo) */
+  --color-mute: oklch(0.74 0.014 80);
+  --color-mute-ink: oklch(0.4 0.012 70);
+
+  --font-display: 'Bodoni Moda Variable', 'Bodoni 72', Didot, 'Times New Roman', serif;
+  --font-sans: 'Hanken Grotesk Variable', ui-sans-serif, system-ui, sans-serif;
+
+  --ease-out-quint: cubic-bezier(0.23, 1, 0.32, 1);
+
+  --animate-marquee: marquee 38s linear infinite;
+  @keyframes marquee {
+    to {
+      transform: translateX(-50%);
+    }
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background: var(--color-ink);
+    color: var(--color-paper);
+    font-family: var(--font-sans);
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    line-height: 1.02;
+    text-wrap: balance;
+    font-optical-sizing: auto;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+  ::selection {
+    background: var(--color-gold);
+    color: var(--color-ink);
+  }
+}
+
+@layer components {
+  /* Rótulo pequeño en mayúsculas espaciadas */
+  .eyebrow {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.625rem;
+    min-height: 3.25rem;
+    padding: 0 1.75rem;
+    border-radius: 3px;
+    font-size: 0.875rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    transition:
+      transform 160ms var(--ease-out-quint),
+      background-color 200ms var(--ease-out-quint),
+      color 200ms var(--ease-out-quint),
+      border-color 200ms var(--ease-out-quint);
+  }
+  .btn:active {
+    transform: scale(0.97);
+  }
+  .btn-gold {
+    background: var(--color-gold);
+    color: var(--color-ink);
+  }
+  .btn-ghost {
+    border: 1px solid var(--color-ink-3);
+    color: var(--color-paper);
+  }
+  @media (hover: hover) {
+    .btn-gold:hover {
+      background: var(--color-gold-bright);
+    }
+    .btn-ghost:hover {
+      border-color: var(--color-gold);
+      color: var(--color-gold-bright);
+    }
+  }
+
+  /* Números de precio: Didone grande con cifras alineadas */
+  .price {
+    font-family: var(--font-display);
+    font-variant-numeric: lining-nums;
+    font-weight: 500;
+    letter-spacing: -0.03em;
+    line-height: 0.9;
+  }
+
+  /* Grano sutil sobre los fondos negros */
+  .grain::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.07;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+}
+
+/* ---------- Entradas al hacer scroll (una sola vez) ---------- */
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition:
+    opacity 480ms var(--ease-out-quint),
+    transform 480ms var(--ease-out-quint);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+.reveal.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .animate-marquee {
+    animation: none;
+  }
+  .btn {
+    transition: none;
+  }
+}
+
+/* ---------- Entrada del hero (al cargar la página) ---------- */
+.hero-in {
+  animation: hero-in 620ms var(--ease-out-quint) both;
+  animation-delay: calc(var(--i, 0) * 60ms + 80ms);
+}
+.hero-art {
+  animation: hero-art 900ms var(--ease-out-quint) both;
+  animation-delay: 160ms;
+}
+@keyframes hero-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+}
+@keyframes hero-art {
+  from {
+    opacity: 0;
+    transform: translateY(26px) scale(0.97);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-in,
+  .hero-art {
+    animation: none;
+  }
+}
+
+/* ---------- Ficha de perfume (<dialog>) ---------- */
+.perfume-dialog[open] {
+  animation: dialog-in 260ms var(--ease-out-quint);
+}
+.perfume-dialog::backdrop {
+  animation: fade-in 200ms ease-out;
+}
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .perfume-dialog[open],
+  .perfume-dialog::backdrop {
+    animation: none;
+  }
+}
+
+/* ---------- Avisos del panel ---------- */
+.toast {
+  animation: toast-in 240ms var(--ease-out-quint);
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.97);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
+}

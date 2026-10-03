@@ -1,0 +1,4 @@
+# Fin de línea LF en todos los sistemas (evita diferencias entre Windows y Vercel)
+* text=auto eol=lf
+*.png binary
+*.woff2 binary

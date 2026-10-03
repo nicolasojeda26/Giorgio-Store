@@ -1,0 +1,10 @@
+node_modules
+dist
+demo
+.env
+.env.local
+.vercel
+demo-*.html
+
+# Capturas de las revisiones de cada etapa: quedan solo en la carpeta local
+capturas/

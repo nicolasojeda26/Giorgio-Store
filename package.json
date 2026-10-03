@@ -1,0 +1,37 @@
+{
+  "name": "giorgio-perfumeria",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "build:demo": "vite build --mode demo",
+    "test": "node --test \"tests/*.test.js\"",
+    "seed:build": "node scripts/build-seed.js",
+    "format": "prettier --write \"{src,api,shared,tests,scripts}/**/*.{js,jsx,css}\"",
+    "check": "node scripts/check-setup.js"
+  },
+  "dependencies": {
+    "@fontsource-variable/bodoni-moda": "^5.3.0",
+    "@fontsource-variable/hanken-grotesk": "^5.3.0",
+    "@supabase/supabase-js": "^2.117.2",
+    "lucide-react": "^1.51.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-router-dom": "^7.18.4"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@tailwindcss/vite": "^4.3.3",
+    "@vitejs/plugin-react": "^6.1.1",
+    "prettier": "^3.0.0",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.3.2",
+    "vite-plugin-singlefile": "^2.3.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
