@@ -1,0 +1,10 @@
+{
+  "name": "Giorgio · Stock y finanzas",
+  "short_name": "Giorgio",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0c0b0a",
+  "theme_color": "#0c0b0a",
+  "lang": "es-AR",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

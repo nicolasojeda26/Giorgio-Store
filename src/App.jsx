@@ -1,50 +1,58 @@
 import { Suspense, lazy } from 'react'
-import { Route, Routes, useLocation } from 'react-router-dom'
-import Header from './components/Header.jsx'
-import Footer from './components/Footer.jsx'
-import CartDrawer from './components/CartDrawer.jsx'
-import Home from './pages/Home.jsx'
-import PromoPage from './pages/PromoPage.jsx'
-import Checkout from './pages/Checkout.jsx'
-import Order from './pages/Order.jsx'
-import NotFound from './pages/NotFound.jsx'
+import { Navigate, Route, Routes } from 'react-router-dom'
+import Layout from './components/Layout.jsx'
+import Logo from './components/Logo.jsx'
+import { useApp } from './lib/app.jsx'
+import Login from './pages/Login.jsx'
+import Inicio from './pages/Inicio.jsx'
+import Ventas from './pages/Ventas.jsx'
+import NuevaVenta from './pages/NuevaVenta.jsx'
+import Productos from './pages/Productos.jsx'
+import ProductoForm from './pages/ProductoForm.jsx'
+import Ajustes from './pages/Ajustes.jsx'
 
-// El panel se descarga recién al entrar a /admin: no pesa en la tienda.
-const AdminApp = lazy(() => import('./admin/AdminApp.jsx'))
+// Lo que solo usa el dueño se descarga recién cuando entra.
+const Compras = lazy(() => import('./pages/Compras.jsx'))
+const NuevaCompra = lazy(() => import('./pages/NuevaCompra.jsx'))
+const Caja = lazy(() => import('./pages/Caja.jsx'))
+const Finanzas = lazy(() => import('./pages/Finanzas.jsx'))
+const Calculadoras = lazy(() => import('./pages/Calculadoras.jsx'))
+
+function Loading() {
+  return (
+    <div className="grid min-h-svh place-items-center bg-ink text-paper">
+      <div className="animate-pulse">
+        <Logo />
+      </div>
+    </div>
+  )
+}
 
 export default function App() {
-  const { pathname } = useLocation()
+  const { usuario, dueno, inicio } = useApp()
+  if (usuario === undefined) return <Loading />
+  if (!usuario) return <Login />
+  if (!inicio) return <Loading />
 
-  if (pathname.startsWith('/admin')) {
-    return (
-      <Suspense fallback={<div className="min-h-svh bg-ink" />}>
-        <Routes>
-          <Route path="/admin/*" element={<AdminApp />} />
-        </Routes>
-      </Suspense>
-    )
-  }
-
+  const soloDueno = (element) => (dueno ? element : <Navigate to="/" replace />)
   return (
-    <>
-      <a
-        href="#contenido"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:bg-gold focus:px-4 focus:py-2 focus:text-ink"
-      >
-        Saltar al contenido
-      </a>
-      <Header />
-      <main id="contenido">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/promo/:slug" element={<PromoPage />} />
-          <Route path="/checkout" element={<Checkout />} />
-          <Route path="/pedido/:id/:token?" element={<Order />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </main>
-      <Footer />
-      <CartDrawer />
-    </>
+    <Suspense fallback={<p className="p-10 text-mute-ink">Cargando…</p>}>
+      <Routes>
+        <Route element={<Layout />}>
+          <Route index element={<Inicio />} />
+          <Route path="ventas" element={<Ventas />} />
+          <Route path="ventas/nueva" element={<NuevaVenta />} />
+          <Route path="productos" element={<Productos />} />
+          <Route path="productos/:id" element={soloDueno(<ProductoForm />)} />
+          <Route path="compras" element={soloDueno(<Compras />)} />
+          <Route path="compras/nueva" element={soloDueno(<NuevaCompra />)} />
+          <Route path="caja" element={soloDueno(<Caja />)} />
+          <Route path="finanzas" element={soloDueno(<Finanzas />)} />
+          <Route path="calculadoras" element={soloDueno(<Calculadoras />)} />
+          <Route path="ajustes" element={<Ajustes />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    </Suspense>
   )
 }

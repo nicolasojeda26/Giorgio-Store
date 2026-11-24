@@ -1,5 +1,5 @@
 {
-  "name": "giorgio-perfumeria",
+  "name": "giorgio-sistema",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -7,31 +7,27 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "build:demo": "vite build --mode demo",
     "test": "node --test \"tests/*.test.js\"",
-    "seed:build": "node scripts/build-seed.js",
-    "format": "prettier --write \"{src,api,shared,tests,scripts}/**/*.{js,jsx,css}\"",
-    "check": "node scripts/check-setup.js"
+    "format": "prettier --write \"{src,api,shared,tests,scripts}/**/*.{js,jsx,css}\""
+  },
+  "engines": {
+    "node": ">=20"
   },
   "dependencies": {
     "@fontsource-variable/bodoni-moda": "^5.3.0",
     "@fontsource-variable/hanken-grotesk": "^5.3.0",
-    "@supabase/supabase-js": "^2.117.2",
-    "lucide-react": "^1.51.0",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
-    "react-router-dom": "^7.18.4"
+    "@neondatabase/serverless": "^1.2.1",
+    "lucide-react": "^1.79.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router-dom": "^7.18.6"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.8",
-    "@tailwindcss/vite": "^4.3.3",
-    "@vitejs/plugin-react": "^6.1.1",
-    "prettier": "^3.0.0",
-    "tailwindcss": "^4.3.3",
-    "vite": "^8.3.2",
-    "vite-plugin-singlefile": "^2.3.3"
-  },
-  "engines": {
-    "node": ">=20"
+    "@electric-sql/pglite": "^0.6.0",
+    "@tailwindcss/vite": "^4.3.5",
+    "@vitejs/plugin-react": "^6.3.0",
+    "prettier": "^3.10.1",
+    "tailwindcss": "^4.3.5",
+    "vite": "^8.3.8"
   }
 }

@@ -11,6 +11,8 @@ export default function Logo({ className = '', size = 'md' }) {
   return (
     <span className={`inline-flex flex-col items-center leading-none ${className}`}>
       <span className={`font-display uppercase tracking-[0.01em] ${sizes.word}`}>Giorgio</span>
+      {/* Espacio para lectores de pantalla: sin él, el nombre se lee "GiorgioPerfumería". */}
+      <span className="sr-only"> </span>
       <span className={`mt-[0.35em] pl-[0.46em] font-sans font-medium uppercase ${sizes.sub}`}>Perfumería</span>
     </span>
   )
