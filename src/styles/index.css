@@ -267,3 +267,13 @@
     animation: none;
   }
 }
+
+/* Anulados, pausados y desactivados: se distinguen sin bajar el contraste del texto (antes era opacidad).
+   Fuera de las capas de Tailwind para que gane sobre el fondo de las tarjetas. */
+.apagado {
+  background: var(--color-paper-2);
+  border-style: dashed;
+}
+.apagado-fila {
+  color: var(--color-mute-ink);
+}

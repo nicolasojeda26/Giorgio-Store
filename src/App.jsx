@@ -16,6 +16,7 @@ const Compras = lazy(() => import('./pages/Compras.jsx'))
 const NuevaCompra = lazy(() => import('./pages/NuevaCompra.jsx'))
 const Caja = lazy(() => import('./pages/Caja.jsx'))
 const Traspasos = lazy(() => import('./pages/Traspasos.jsx'))
+const Guia = lazy(() => import('./pages/Guia.jsx'))
 const Finanzas = lazy(() => import('./pages/Finanzas.jsx'))
 const Calculadoras = lazy(() => import('./pages/Calculadoras.jsx'))
 
@@ -52,6 +53,7 @@ export default function App() {
           <Route path="traspasos" element={soloEncargado(<Traspasos />)} />
           <Route path="finanzas" element={soloDueno(<Finanzas />)} />
           <Route path="calculadoras" element={soloDueno(<Calculadoras />)} />
+          <Route path="guia" element={<Guia />} />
           <Route path="ajustes" element={<Ajustes />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

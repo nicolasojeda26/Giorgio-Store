@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   ArrowLeftRight,
+  BookOpen,
   Calculator,
   ChartColumn,
   House,
@@ -28,6 +29,7 @@ const NAV = [
   { to: '/caja', label: 'Caja', icon: Wallet, rol: 'encargado' },
   { to: '/finanzas', label: 'Finanzas', icon: ChartColumn, rol: 'dueno' },
   { to: '/calculadoras', label: 'Calculadoras', icon: Calculator, rol: 'dueno' },
+  { to: '/guia', label: 'Guía', icon: BookOpen },
   { to: '/ajustes', label: 'Ajustes', icon: Settings },
 ]
 // En el celular, las tres más usadas van abajo; el resto, en "Más".

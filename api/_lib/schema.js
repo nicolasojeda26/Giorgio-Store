@@ -1,6 +1,6 @@
 // Esquema de la base. Se crea solo la primera vez que una función usa la base; cada cambio futuro
 // del esquema sube SCHEMA_VERSION y agrega sentencias idempotentes.
-export const SCHEMA_VERSION = '2'
+export const SCHEMA_VERSION = '3'
 
 // Gastos fijos con los que arranca: generales del negocio y, en cada local, los propios (todos en $0, editables).
 const GASTOS_INICIALES = `insert into gastos_fijos (nombre, monto, orden, sucursal_id)
@@ -313,8 +313,12 @@ export const SCHEMA = [
      it record;
    begin
      if not exists (select 1 from sucursales where id = v_sucursal and activo) then raise exception 'sucursal_invalida'; end if;
-     select * into v_medio from medios_pago where id = (p->>'medio_pago_id')::uuid;
+     select * into v_medio from medios_pago where id = (p->>'medio_pago_id')::uuid and activo;
      if not found then raise exception 'medio_invalido'; end if;
+     if exists (select 1 from jsonb_array_elements(p->'items') i
+                  join productos pr on pr.id = (i->>'producto_id')::uuid where not pr.activo) then
+       raise exception 'producto_pausado';
+     end if;
 
      select coalesce(sum((i->>'cantidad')::int * (i->>'precio_unit')::int), 0) into v_subtotal
        from jsonb_array_elements(p->'items') i;

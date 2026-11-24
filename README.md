@@ -18,6 +18,7 @@ Funciona para **dos locales** (o más): cada uno tiene su stock, su caja y sus g
 | **Caja** | Por local o total: saldos por cuenta, movimientos, gastos fijos sin pagar, aportes y retiros | La de su local (sin aportes ni retiros) | — |
 | **Finanzas** | Resultado total y por local, comparación entre locales, punto de equilibrio, rentabilidad por producto, gastos fijos | — | — |
 | **Calculadoras** | Precio de venta, "¿Me alcanza?", punto de equilibrio rápido | — | — |
+| **Guía** | Cómo usar todo, con ejemplos de las cuentas | Lo de su rol | Lo de su rol |
 | **Ajustes** | Negocio, sueldo, locales, medios de pago, usuarios | Su contraseña | Su contraseña |
 
 Gastos fijos: cada uno es de un local (alquiler, servicios, sueldos del local) o **general** del negocio (monotributo, contador). El resultado de un local descuenta solo lo suyo; los generales y el sueldo del dueño entran en el total.

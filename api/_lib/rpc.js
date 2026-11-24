@@ -39,7 +39,8 @@ async function currentUser(request, sql) {
   const token = readCookie(request)
   if (!token) return null
   const [user] = await sql.query(
-    `select u.id, u.nombre, u.email, u.rol, u.sucursal_id, u.password_hash from sesiones s join usuarios u on u.id = s.usuario_id
+    `select u.id, u.nombre, u.email, u.rol, u.sucursal_id, u.password_hash, su.activo as sucursal_activa
+       from sesiones s join usuarios u on u.id = s.usuario_id left join sucursales su on su.id = u.sucursal_id
       where s.token_hash = $1 and s.expires_at > now() and u.activo`,
     [hashToken(token)],
   )

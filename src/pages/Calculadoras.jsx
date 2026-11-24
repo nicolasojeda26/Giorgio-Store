@@ -453,7 +453,7 @@ function Mes() {
         <Field
           id="mes-fijos"
           label="Gastos fijos del mes"
-          hint={`Los cargados en Finanzas suman ${money(fijosReales)}.`}
+          hint={`Los de todo el negocio (los dos locales y los generales) suman ${money(fijosReales)}.`}
         >
           <MoneyInput id="mes-fijos" value={gastosFijos} onChange={setFijos} />
         </Field>
@@ -526,7 +526,7 @@ function EquilibrioRapido() {
         <Field
           id="pe-fijos"
           label="Gastos fijos + sueldo por mes"
-          hint={`Con lo cargado en el sistema: ${money(fijosReales)}.`}
+          hint={`Todo el negocio, con tu sueldo: ${money(fijosReales)}.`}
         >
           <MoneyInput id="pe-fijos" value={f} onChange={setFijos} />
         </Field>

@@ -127,7 +127,7 @@ function Medios() {
       </div>
       <ul className="mt-3 divide-y divide-line">
         {inicio.medios.map((m) => (
-          <li key={m.id} className={`flex items-center gap-3 py-2.5 ${m.activo ? '' : 'opacity-50'}`}>
+          <li key={m.id} className={`flex items-center gap-3 py-2.5 ${m.activo ? '' : 'apagado-fila'}`}>
             <span className="min-w-0 flex-1">
               <span className="block font-semibold">{m.nombre}</span>
               <span className="text-sm text-mute-ink">
@@ -136,6 +136,7 @@ function Medios() {
                   ? `${decimal(m.comision_pct)} %${m.aplica_iva ? ' + IVA' : ''}`
                   : 'sin comisión'}
                 {Number(m.retencion_pct) > 0 && ` · retención ${decimal(m.retencion_pct)} %`}
+                {!m.activo && ' · pausado'}
               </span>
             </span>
             <button
@@ -253,7 +254,7 @@ function Locales() {
       </div>
       <ul className="mt-3 divide-y divide-line">
         {sucursales.map((l) => (
-          <li key={l.id} className={`flex items-center gap-3 py-2.5 ${l.activo ? '' : 'opacity-50'}`}>
+          <li key={l.id} className={`flex items-center gap-3 py-2.5 ${l.activo ? '' : 'apagado-fila'}`}>
             <span className="min-w-0 flex-1">
               <span className="block truncate font-semibold">{l.nombre}</span>
               <span className="text-sm text-mute-ink">
@@ -368,7 +369,7 @@ function Usuarios() {
       </div>
       <ul className="mt-3 divide-y divide-line">
         {(data ?? []).map((u) => (
-          <li key={u.id} className={`flex items-center gap-3 py-2.5 ${u.activo ? '' : 'opacity-50'}`}>
+          <li key={u.id} className={`flex items-center gap-3 py-2.5 ${u.activo ? '' : 'apagado-fila'}`}>
             <span className="min-w-0 flex-1">
               <span className="block truncate font-semibold">
                 {u.nombre}

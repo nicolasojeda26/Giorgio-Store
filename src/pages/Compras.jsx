@@ -95,7 +95,7 @@ function ListaCompras({ compras, loaded }) {
           const saldo = c.total - c.pagado
           const vencida = saldo > 0 && c.vencimiento && String(c.vencimiento).slice(0, 10) < hoy
           return (
-            <li key={c.id} className={`${cardClass} p-4 ${c.estado === 'anulada' ? 'opacity-60' : ''}`}>
+            <li key={c.id} className={`${cardClass} p-4 ${c.estado === 'anulada' ? 'apagado' : ''}`}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="font-semibold">
@@ -280,7 +280,7 @@ function Proveedores({ proveedores, compras }) {
             return (
               <li
                 key={p.id}
-                className={`${cardClass} flex flex-wrap items-center justify-between gap-3 p-4 ${p.activo ? '' : 'opacity-60'}`}
+                className={`${cardClass} flex flex-wrap items-center justify-between gap-3 p-4 ${p.activo ? '' : 'apagado'}`}
               >
                 <div className="min-w-0">
                   <p className="font-semibold">{p.nombre}</p>

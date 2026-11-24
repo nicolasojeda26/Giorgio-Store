@@ -78,7 +78,7 @@ export default function Ventas() {
 
       <ul className="mt-4 space-y-3">
         {ventas.map((v) => (
-          <li key={v.id} className={`${cardClass} p-4 ${v.estado === 'anulada' ? 'opacity-60' : ''}`}>
+          <li key={v.id} className={`${cardClass} p-4 ${v.estado === 'anulada' ? 'apagado' : ''}`}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="font-semibold">

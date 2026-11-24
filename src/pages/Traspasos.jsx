@@ -60,7 +60,7 @@ export default function Traspasos() {
 
       <ul className="space-y-3">
         {lista.map((t) => (
-          <li key={t.id} className={`${cardClass} p-4 ${t.estado === 'anulado' ? 'opacity-60' : ''}`}>
+          <li key={t.id} className={`${cardClass} p-4 ${t.estado === 'anulado' ? 'apagado' : ''}`}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="flex flex-wrap items-center gap-x-2 font-semibold">

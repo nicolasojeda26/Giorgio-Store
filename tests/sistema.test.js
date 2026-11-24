@@ -418,3 +418,56 @@ test('usuarios: el dueño cambia la contraseña de un empleado y lo desactiva', 
   await s.dueno.ok('guardarUsuario', { usuario: { ...beto, sucursal_id: centro } })
   assert.equal((await s.vendedorNorte.call('inicio')).status, 401)
 })
+
+let vendedora
+test('QA: alta de una vendedora nueva para las pruebas siguientes', async () => {
+  await s.dueno.ok('guardarUsuario', {
+    usuario: {
+      nombre: 'Carla',
+      email: 'carla@mail.com',
+      rol: 'vendedor',
+      sucursal_id: centro,
+      password: 'clave-carla-1',
+    },
+  })
+  vendedora = client(s.deps, { ip: '6.6.6.6' })
+  await vendedora.ok('ingresar', { email: 'carla@mail.com', password: 'clave-carla-1' })
+})
+
+test('QA: no se vende un producto pausado ni con un medio pausado, ni con fecha futura', async () => {
+  const p = (await s.dueno.ok('guardarProducto', { producto: { nombre: 'Pausado', precio: 100, activo: true } })).id
+  await s.dueno.ok('guardarProducto', { producto: { id: p, nombre: 'Pausado', precio: 100, activo: false } })
+  const venta = (extra) =>
+    vendedora.call('registrarVenta', {
+      venta: { medioPagoId: efectivoId, items: [{ productoId: perfumeA, cantidad: 1, precio: 100 }], ...extra },
+    })
+  const pausado = await vendedora.call('registrarVenta', {
+    venta: { medioPagoId: efectivoId, items: [{ productoId: p, cantidad: 1, precio: 100 }] },
+  })
+  assert.equal(pausado.body.error.code, 'producto_pausado')
+  assert.equal((await venta({ fecha: '2099-01-01' })).body.error.message, 'La fecha no puede ser posterior a hoy.')
+  assert.equal((await venta({ fecha: '2026-02-31' })).body.error.message, 'Revisá la fecha.')
+  const { medios } = await s.dueno.ok('inicio')
+  const ef = medios.find((m) => m.id === efectivoId)
+  await s.dueno.ok('guardarMedio', { medio: { ...ef, activo: false } })
+  assert.equal((await venta({})).body.error.code, 'medio_invalido')
+  await s.dueno.ok('guardarMedio', { medio: { ...ef, activo: true } })
+  const traspaso = await s.dueno.call('registrarTraspaso', {
+    traspaso: {
+      origenId: centro,
+      destinoId: norte,
+      fecha: '2099-01-01',
+      items: [{ productoId: perfumeA, cantidad: 1 }],
+    },
+  })
+  assert.equal(traspaso.status, 400)
+})
+
+test('QA: si el local del vendedor se cierra, recibe un aviso claro', async () => {
+  await s.dueno.ok('guardarSucursal', { sucursal: { id: centro, nombre: 'Irigoyen', activo: false } })
+  const r = await vendedora.call('registrarVenta', {
+    venta: { medioPagoId: efectivoId, items: [{ productoId: perfumeA, cantidad: 1, precio: 100 }] },
+  })
+  assert.equal(r.body.error.code, 'local_cerrado')
+  await s.dueno.ok('guardarSucursal', { sucursal: { id: centro, nombre: 'Irigoyen', activo: true } })
+})

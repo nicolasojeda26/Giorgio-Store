@@ -20,6 +20,12 @@ export default function Inicio() {
             {inicio.ajustes.negocio} · {todos ? 'Todos los locales' : nombreLocal(sucursal)}
           </p>
           <h1 className="mt-1 text-[2.25rem] md:text-[2.75rem]">Hola, {nombre}</h1>
+          <Link
+            to="/guia"
+            className="mt-1 inline-flex min-h-11 items-center text-sm text-mute-ink underline underline-offset-4"
+          >
+            ¿Dudas? Mirá la guía de uso
+          </Link>
         </div>
         <Link to="/ventas/nueva" className="btn btn-gold w-full sm:w-auto">
           <Plus size={18} strokeWidth={2} aria-hidden="true" />

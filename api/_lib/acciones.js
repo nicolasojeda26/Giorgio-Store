@@ -27,15 +27,27 @@ const text = (value, max = 200) =>
     .trim()
     .slice(0, max)
 const required = (value, what, max = 200) => text(value, max) || fail('invalido', `Escribí ${what}.`)
+/** Hoy en Argentina ("2026-11-24"). La base está en UTC: después de las 21 h ya sería mañana. */
+const hoy = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Argentina/Buenos_Aires' })
 const fecha = (value) => {
   if (!value) return null
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(value))) fail('invalido', 'Revisá la fecha.')
-  return value
+  const f = String(value)
+  const d = new Date(`${f}T12:00:00Z`)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(f) || Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== f) {
+    fail('invalido', 'Revisá la fecha.')
+  }
+  return f
+}
+/** Fecha de algo que ya pasó (venta, pago, traspaso): hoy si no viene, y nunca en el futuro. */
+const fechaHecho = (value) => {
+  const f = fecha(value) ?? hoy()
+  if (f > hoy()) fail('invalido', 'La fecha no puede ser posterior a hoy.')
+  return f
 }
 const mes = (value) => {
   const m = String(value ?? '')
-  if (/^\d{4}-\d{2}$/.test(m)) return m
-  return new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Argentina/Buenos_Aires' }).slice(0, 7)
+  if (/^\d{4}-(0[1-9]|1[0-2])$/.test(m)) return m
+  return hoy().slice(0, 7)
 }
 const rangoMes = (m) => {
   const [y, mm] = m.split('-').map(Number)
@@ -51,7 +63,7 @@ const CATEGORIAS = {
 
 // Errores que levantan las funciones de la base (ver schema.js) y su mensaje para la pantalla.
 const DB_ERRORS = {
-  medio_invalido: 'Elegí el medio de pago.',
+  medio_invalido: 'Elegí un medio de pago activo.',
   venta_vacia: 'Agregá al menos un producto con precio.',
   descuento_invalido: 'El descuento no puede ser mayor que el total.',
   producto_invalido: 'Uno de los productos ya no existe. Actualizá la página.',
@@ -61,6 +73,7 @@ const DB_ERRORS = {
   traspaso_invalido: 'Elegí dos locales distintos.',
   traspaso_vacio: 'Agregá al menos un producto.',
   stock_insuficiente: 'No hay tanto stock en el local de origen.',
+  producto_pausado: 'Uno de los productos está pausado. Activalo en Stock o sacalo de la venta.',
 }
 export const dbErrorMessage = (error) => {
   const key = Object.keys(DB_ERRORS).find((k) => String(error?.message ?? '').includes(k))
@@ -73,7 +86,11 @@ const alcance = (body, usuario) => (esDueno(usuario) ? optUuid(body?.sucursalId)
 /** Local en el que se opera (vender, ingresar, contar): tiene que ser uno concreto. */
 const local = (body, usuario) => {
   if (esDueno(usuario)) return uuid(body?.sucursalId, 'el local')
-  return usuario.sucursal_id ?? fail('sin_local', 'Tu usuario no tiene local. Pedile al dueño que te asigne uno.', 403)
+  if (!usuario.sucursal_id) fail('sin_local', 'Tu usuario no tiene local. Pedile al dueño que te asigne uno.', 403)
+  if (usuario.sucursal_activa === false) {
+    fail('local_cerrado', 'Tu local figura cerrado en el sistema. Hablá con el dueño.', 403)
+  }
+  return usuario.sucursal_id
 }
 /** Filtro "and <col> = $n" si hay un local elegido. Devuelve [sql, params]. */
 const filtroLocal = (sucursal, col, params) =>
@@ -275,7 +292,7 @@ export const ACTIONS = {
       const payload = {
         origen_id: origen,
         destino_id: uuid(t.destinoId, 'el local de destino'),
-        fecha: fecha(t.fecha),
+        fecha: fechaHecho(t.fecha),
         nota: text(t.nota, 200),
         usuario_id: usuario.id,
         items: items.map((i) => ({
@@ -306,7 +323,7 @@ export const ACTIONS = {
       if (!items.length || items.length > 100) fail('venta_vacia', 'Agregá al menos un producto.')
       const payload = {
         sucursal_id: local(v, usuario),
-        fecha: fecha(v.fecha),
+        fecha: fechaHecho(v.fecha),
         cliente: text(v.cliente, 80),
         nota: text(v.nota, 200),
         medio_pago_id: uuid(v.medioPagoId, 'el medio de pago'),
@@ -392,7 +409,7 @@ export const ACTIONS = {
       const payload = {
         sucursal_id: uuid(c.sucursalId, 'el local al que llega'),
         proveedor_id: optUuid(c.proveedorId),
-        fecha: fecha(c.fecha),
+        fecha: fechaHecho(c.fecha),
         vencimiento: fecha(c.vencimiento),
         nota: text(c.nota, 200),
         actualizar_costo: c.actualizarCosto !== false,
@@ -446,7 +463,7 @@ export const ACTIONS = {
          values ($1, coalesce($2::date, current_date), 'egreso', $3, $4, 'pago_proveedor', $5, $6, $7, $8)`,
         [
           optUuid(sucursalId) ?? compra.sucursal_id,
-          fecha(f),
+          fechaHecho(f),
           cuenta(cta),
           pago,
           `Pago de la compra ${compra.numero}`,
@@ -523,7 +540,7 @@ export const ACTIONS = {
          values ($1, coalesce($2::date, current_date), $3, $4, $5, $6, $7, $8, $9) returning id`,
         [
           sucursal,
-          fecha(m.fecha),
+          fechaHecho(m.fecha),
           tipo,
           cuenta(m.cuenta),
           int(m.monto, { min: 1, what: 'el monto' }),

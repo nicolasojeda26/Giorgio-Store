@@ -272,7 +272,12 @@ function Rentabilidad({ productos }) {
           ]}
         />
       </div>
-      <div className="mt-3 overflow-x-auto">
+      <div
+        className="mt-3 overflow-x-auto"
+        tabIndex={0}
+        role="region"
+        aria-label="Tabla de rentabilidad, se puede desplazar"
+      >
         <table className="w-full min-w-[34rem] text-left text-sm">
           <thead className="text-mute-ink">
             <tr>
@@ -316,7 +321,12 @@ function PorLocal({ data }) {
       <p className="text-sm text-mute-ink">
         Lo que deja cada local después de su mercadería, comisiones, gastos fijos y gastos variables.
       </p>
-      <div className="mt-3 overflow-x-auto">
+      <div
+        className="mt-3 overflow-x-auto"
+        tabIndex={0}
+        role="region"
+        aria-label="Tabla de locales, se puede desplazar"
+      >
         <table className="w-full min-w-[36rem] text-left text-sm">
           <thead className="text-mute-ink">
             <tr>
@@ -424,12 +434,13 @@ function GastosFijos() {
       </div>
       <ul className="mt-3 divide-y divide-line">
         {gastos.map((g) => (
-          <li key={g.id} className={`flex items-center gap-3 py-2 ${g.activo ? '' : 'opacity-50'}`}>
+          <li key={g.id} className={`flex items-center gap-3 py-2 ${g.activo ? '' : 'apagado-fila'}`}>
             <span className="min-w-0 flex-1">
               <span className="block truncate font-semibold">{g.nombre}</span>
               <span className="text-sm text-mute-ink">
                 {g.sucursal ?? 'General'}
                 {g.dia_pago && ` · vence el día ${g.dia_pago}`}
+                {!g.activo && ' · no cuenta'}
               </span>
             </span>
             <span className={`tabular-nums ${g.monto === 0 ? 'text-mute-ink' : ''}`}>{money(g.monto)}</span>

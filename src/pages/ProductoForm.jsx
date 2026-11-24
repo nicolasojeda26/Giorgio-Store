@@ -209,7 +209,12 @@ function Movimientos({ productoId }) {
       <h2 id="movs" className="font-display text-[1.5rem]">
         Movimientos de stock
       </h2>
-      <div className="mt-3 overflow-x-auto">
+      <div
+        className="mt-3 overflow-x-auto"
+        tabIndex={0}
+        role="region"
+        aria-label="Tabla de movimientos, se puede desplazar"
+      >
         <table className="w-full min-w-[32rem] text-left text-sm">
           <thead className="text-mute-ink">
             <tr>
