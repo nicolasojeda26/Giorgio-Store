@@ -18,7 +18,15 @@ import { ACTIONS, ActionError, dbErrorMessage } from './acciones.js'
 const LIMITS = { email: 10, ip: 40, minutes: 15 }
 const fail = (code, message, status = 400) => errorJson(code, message, status)
 const clientIp = (request) => (request.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() || 'sin-ip'
-const publicUser = (u) => ({ id: u.id, nombre: u.nombre, email: u.email, rol: u.rol })
+const publicUser = (u) => ({
+  id: u.id,
+  nombre: u.nombre,
+  email: u.email,
+  rol: u.rol,
+  sucursal_id: u.sucursal_id ?? null,
+})
+const ROLES = ['dueno', 'encargado', 'vendedor']
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /** Las pantallas siempre mandan este header: un formulario de otro sitio no puede. */
 const fromApp = (request) => {
@@ -31,7 +39,7 @@ async function currentUser(request, sql) {
   const token = readCookie(request)
   if (!token) return null
   const [user] = await sql.query(
-    `select u.id, u.nombre, u.email, u.rol, u.password_hash from sesiones s join usuarios u on u.id = s.usuario_id
+    `select u.id, u.nombre, u.email, u.rol, u.sucursal_id, u.password_hash from sesiones s join usuarios u on u.id = s.usuario_id
       where s.token_hash = $1 and s.expires_at > now() and u.activo`,
     [hashToken(token)],
   )
@@ -100,6 +108,9 @@ export async function handleRpc(request, { config, sql }) {
     if (action.rol === 'dueno' && usuario.rol !== 'dueno') {
       return fail('sin_permiso', 'Solo el dueño puede hacer esto.', 403)
     }
+    if (action.rol === 'encargado' && usuario.rol === 'vendedor') {
+      return fail('sin_permiso', 'Esto lo hace el encargado del local o el dueño.', 403)
+    }
     return json(await action.run(body, { sql, usuario }))
   } catch (error) {
     if (error instanceof ActionError) return fail(error.code, error.message, error.status)
@@ -150,7 +161,7 @@ async function ingresar(request, { email, password }, sql) {
     return fail('intentos', 'Demasiados intentos. Esperá 15 minutos y probá de nuevo.', 429)
   }
   const [user] = await sql.query(
-    'select id, nombre, email, rol, password_hash from usuarios where email = $1 and activo',
+    'select id, nombre, email, rol, sucursal_id, password_hash from usuarios where email = $1 and activo',
     [cleanEmail],
   )
   const ok = await verifyPassword(String(password ?? ''), user?.password_hash ?? DUMMY_HASH)
@@ -173,7 +184,13 @@ async function cambiarContrasena({ actual, nueva }, usuario, sql) {
 }
 
 const listarUsuarios = async (sql) =>
-  json(await sql.query('select id, nombre, email, rol, activo, created_at from usuarios order by rol, lower(nombre)'))
+  json(
+    await sql.query(
+      `select u.id, u.nombre, u.email, u.rol, u.sucursal_id, s.nombre as sucursal, u.activo, u.created_at
+         from usuarios u left join sucursales s on s.id = u.sucursal_id
+        order by array_position(array['dueno', 'encargado', 'vendedor'], u.rol), s.orden, lower(u.nombre)`,
+    ),
+  )
 
 /**
  * Alta o cambio de un usuario. Para empleados nuevos (o para darle una contraseña nueva a alguien)
@@ -184,8 +201,14 @@ async function guardarUsuario({ usuario: u }, yo, sql) {
     .trim()
     .slice(0, 60)
   const email = normalizeEmail(u?.email)
-  const rol = u?.rol === 'dueno' ? 'dueno' : 'empleado'
+  const rol = ROLES.includes(u?.rol) ? u.rol : 'vendedor'
+  // Encargados y vendedores trabajan en un local; el dueño, en todos.
+  const sucursal = rol === 'dueno' ? null : UUID.test(String(u?.sucursal_id ?? '')) ? u.sucursal_id : null
   if (!nombre) return fail('nombre', 'Escribí el nombre.')
+  if (rol !== 'dueno') {
+    const [ok] = sucursal ? await sql.query('select id from sucursales where id = $1 and activo', [sucursal]) : []
+    if (!ok) return fail('sucursal', 'Elegí el local donde trabaja.')
+  }
   if (!validEmail(email)) return fail('email', 'Revisá el email.')
   if (u?.password) {
     const weak = weakPassword(u.password)
@@ -196,20 +219,23 @@ async function guardarUsuario({ usuario: u }, yo, sql) {
     if (u.id === yo.id && (rol !== 'dueno' || u.activo === false)) {
       return fail('invalido', 'No podés sacarte el rol de dueño ni desactivarte a vos mismo.')
     }
+    const [antes] = await sql.query('select rol, sucursal_id from usuarios where id = $1', [u.id])
     const [row] = await sql.query(
       `update usuarios set nombre = $2, email = $3, rol = $4, activo = $5,
-              password_hash = coalesce($6, password_hash) where id = $1 returning id`,
-      [u.id, nombre, email, rol, u.activo !== false, u.password ? await hashPassword(u.password) : null],
+              password_hash = coalesce($6, password_hash), sucursal_id = $7 where id = $1 returning id`,
+      [u.id, nombre, email, rol, u.activo !== false, u.password ? await hashPassword(u.password) : null, sucursal],
     )
     if (!row) return fail('no_existe', 'Ese usuario ya no existe.', 404)
-    // Si se le cambió la contraseña o se lo desactivó, se cierran sus sesiones.
-    if (u.password || u.activo === false) await sql.query('delete from sesiones where usuario_id = $1', [u.id])
+    // Si se le cambió la contraseña, el rol o el local, o se lo desactivó, se cierran sus sesiones.
+    const cambio = antes && (antes.rol !== rol || antes.sucursal_id !== sucursal)
+    if (u.password || u.activo === false || cambio)
+      await sql.query('delete from sesiones where usuario_id = $1', [u.id])
     return json(row)
   }
   if (!u?.password) return fail('contrasena', 'Escribí una contraseña inicial para el usuario.')
   const [row] = await sql.query(
-    'insert into usuarios (nombre, email, password_hash, rol) values ($1, $2, $3, $4) returning id',
-    [nombre, email, await hashPassword(u.password), rol],
+    'insert into usuarios (nombre, email, password_hash, rol, sucursal_id) values ($1, $2, $3, $4, $5) returning id',
+    [nombre, email, await hashPassword(u.password), rol, sucursal],
   )
   return json(row)
 }

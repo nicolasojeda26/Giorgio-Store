@@ -17,9 +17,11 @@ import {
 } from '../components/ui.jsx'
 
 export default function NuevaVenta() {
-  const { dueno, inicio, run } = useApp()
+  const { dueno, inicio, run, sucursal, activas, nombreLocal } = useApp()
   const navigate = useNavigate()
-  const { data } = useData('productos')
+  // El dueño elige en qué local se vendió (arranca en el que tiene elegido); el resto vende en el suyo.
+  const [local, setLocal] = useState(sucursal || activas[0]?.id || '')
+  const { data } = useData('productos', { sucursalId: local || null })
   const productos = data?.productos ?? []
   const medios = inicio.medios.filter((m) => m.activo)
 
@@ -72,6 +74,7 @@ export default function NuevaVenta() {
       'registrarVenta',
       {
         venta: {
+          sucursalId: local,
           medioPagoId: medioId,
           descuento: Number(descuento) || 0,
           cliente,
@@ -92,9 +95,27 @@ export default function NuevaVenta() {
 
   return (
     <>
-      <PageHeader title="Registrar venta" back="/ventas" />
+      <PageHeader title="Registrar venta" subtitle={dueno ? null : nombreLocal(local)} back="/ventas" />
       <form onSubmit={onSubmit} noValidate className="grid gap-4 lg:grid-cols-[1fr_20rem] lg:items-start">
         <div className="space-y-4">
+          {dueno && (
+            <section className={`${cardClass} p-5`}>
+              <Field id="local-venta" label="Local donde se vendió">
+                <select
+                  id="local-venta"
+                  value={local}
+                  onChange={(e) => setLocal(e.target.value)}
+                  className={selectClass}
+                >
+                  {activas.map((x) => (
+                    <option key={x.id} value={x.id}>
+                      {x.nombre}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </section>
+          )}
           <section className={`${cardClass} p-5`}>
             <ProductPicker productos={productos} onPick={add} />
             {items.length > 0 && (
@@ -152,8 +173,8 @@ export default function NuevaVenta() {
             {sinStock.length > 0 && (
               <p className="mt-3 flex gap-2 text-sm text-danger">
                 <TriangleAlert size={16} strokeWidth={2} className="mt-0.5 shrink-0" />
-                No alcanza el stock de {sinStock.map((i) => i.nombre).join(', ')}. La venta se guarda igual y el stock
-                queda en negativo hasta que se corrija.
+                No alcanza el stock de {sinStock.map((i) => i.nombre).join(', ')} en {nombreLocal(local)}. La venta se
+                guarda igual y el stock queda en negativo hasta que se corrija.
               </p>
             )}
           </section>

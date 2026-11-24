@@ -6,6 +6,7 @@ import { money, number, percent } from '../lib/format.js'
 import {
   Button,
   Chips,
+  selectClass,
   Empty,
   ErrorText,
   Field,
@@ -17,6 +18,10 @@ import {
   inputClass,
 } from '../components/ui.jsx'
 
+// Stock bajo: igual que en el inicio (solo cuenta si tiene mínimo cargado, o si quedó en negativo).
+const esBajo = (stock, minimo) => (minimo > 0 && stock <= minimo) || stock < 0
+const stockEn = (p, id) => p.stocks?.[id] ?? 0
+
 const normalize = (s) =>
   String(s ?? '')
     .normalize('NFD')
@@ -24,8 +29,13 @@ const normalize = (s) =>
     .toLowerCase()
 
 export default function Productos() {
-  const { dueno } = useApp()
+  const { dueno, encargado, sucursal, activas } = useApp()
   const { data, error } = useData('productos')
+  // Dueño con "Todos los locales": se ve el stock de cada local y al ingresar o contar se elige dónde.
+  const todos = dueno && !sucursal
+  const bajoEnAlguno = (p) =>
+    todos ? activas.some((l) => esBajo(stockEn(p, l.id), p.stock_minimo)) : esBajo(p.stock, p.stock_minimo)
+  const sinEnAlguno = (p) => (todos ? activas.some((l) => stockEn(p, l.id) <= 0) : p.stock <= 0)
   const [params, setParams] = useSearchParams()
   const filtro = params.get('filtro') ?? 'todos'
   const [query, setQuery] = useState('')
@@ -35,8 +45,8 @@ export default function Productos() {
   const activos = productos.filter((p) => p.activo)
   const grupos = {
     todos: activos,
-    bajo: activos.filter((p) => p.stock <= p.stock_minimo),
-    sin: activos.filter((p) => p.stock <= 0),
+    bajo: activos.filter(bajoEnAlguno),
+    sin: activos.filter(sinEnAlguno),
     inactivos: productos.filter((p) => !p.activo),
   }
   const lista = useMemo(() => {
@@ -54,6 +64,7 @@ export default function Productos() {
     <>
       <PageHeader
         title="Stock"
+        subtitle={dueno ? (todos ? 'Todos los locales' : activas.find((l) => l.id === sucursal)?.nombre) : null}
         action={
           dueno && (
             <Link to="/productos/nuevo" className="btn btn-gold min-h-12 px-5">
@@ -117,7 +128,8 @@ export default function Productos() {
 
       <ul className="mt-4 space-y-2">
         {lista.map((p) => {
-          const bajo = p.stock <= p.stock_minimo
+          const bajo = bajoEnAlguno(p)
+          const otros = activas.filter((l) => l.id !== sucursal)
           const margen = dueno && p.precio > 0 ? (p.precio - p.costo) / p.precio : null
           return (
             <li key={p.id} className={`${cardClass} p-4`}>
@@ -144,20 +156,49 @@ export default function Productos() {
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
-                <p className="tabular-nums">
-                  <span className="text-sm text-mute-ink">Stock </span>
-                  <span
-                    className={`text-[1.25rem] font-semibold ${p.stock <= 0 ? 'text-danger' : bajo ? 'text-gold-deep' : ''}`}
+                {todos ? (
+                  <ul
+                    className="flex flex-wrap gap-x-5 gap-y-1 tabular-nums"
+                    aria-label={`Stock de ${p.nombre} por local`}
                   >
-                    {p.stock}
-                  </span>
-                  <span className="text-sm text-mute-ink"> · mín. {p.stock_minimo}</span>
-                  {bajo && (
-                    <span className="ml-2 text-sm font-semibold text-gold-deep">
-                      {p.stock <= 0 ? 'Sin stock' : 'Reponer'}
-                    </span>
-                  )}
-                </p>
+                    {activas.map((l) => {
+                      const st = stockEn(p, l.id)
+                      return (
+                        <li key={l.id}>
+                          <span className="text-sm text-mute-ink">{l.nombre} </span>
+                          <span
+                            className={`text-[1.25rem] font-semibold ${st <= 0 ? 'text-danger' : esBajo(st, p.stock_minimo) ? 'text-gold-deep' : ''}`}
+                          >
+                            {st}
+                          </span>
+                        </li>
+                      )
+                    })}
+                    <li className="self-center text-sm text-mute-ink">mín. {p.stock_minimo} c/u</li>
+                  </ul>
+                ) : (
+                  <div className="tabular-nums">
+                    <p>
+                      <span className="text-sm text-mute-ink">Stock </span>
+                      <span
+                        className={`text-[1.25rem] font-semibold ${p.stock <= 0 ? 'text-danger' : bajo ? 'text-gold-deep' : ''}`}
+                      >
+                        {p.stock}
+                      </span>
+                      <span className="text-sm text-mute-ink"> · mín. {p.stock_minimo}</span>
+                      {(bajo || p.stock <= 0) && (
+                        <span className="ml-2 text-sm font-semibold text-gold-deep">
+                          {p.stock <= 0 ? 'Sin stock' : 'Reponer'}
+                        </span>
+                      )}
+                    </p>
+                    {otros.length > 0 && (
+                      <p className="text-sm text-mute-ink">
+                        {otros.map((l) => `En ${l.nombre}: ${stockEn(p, l.id)}`).join(' · ')}
+                      </p>
+                    )}
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <Button
                     variant="secondary"
@@ -167,7 +208,7 @@ export default function Productos() {
                     <PackagePlus size={16} strokeWidth={1.8} aria-hidden="true" />
                     Ingresar
                   </Button>
-                  {dueno && (
+                  {encargado && (
                     <Button
                       variant="secondary"
                       onClick={() => setMover({ producto: p, tipo: 'ajuste' })}
@@ -189,7 +230,12 @@ export default function Productos() {
 }
 
 function MoverStock({ mover, onClose }) {
-  const { run } = useApp()
+  const { run, dueno, sucursal, activas } = useApp()
+  // Con "Todos los locales", el dueño elige en cuál; si no, es el local elegido o el del empleado.
+  const elegir = dueno && !sucursal
+  const [local, setLocal] = useState('')
+  const destino = elegir ? local || activas[0]?.id : sucursal
+  const actual = mover ? (elegir ? stockEn(mover.producto, destino) : mover.producto.stock) : 0
   const [cantidad, setCantidad] = useState('')
   const [motivo, setMotivo] = useState('')
   const [error, setError] = useState(null)
@@ -199,6 +245,7 @@ function MoverStock({ mover, onClose }) {
   const close = () => {
     setCantidad('')
     setMotivo('')
+    setLocal('')
     setError(null)
     onClose()
   }
@@ -210,7 +257,7 @@ function MoverStock({ mover, onClose }) {
     setBusy(true)
     const { ok } = await run(
       'moverStock',
-      { productoId: mover.producto.id, tipo: mover.tipo, cantidad: Number(cantidad), motivo },
+      { productoId: mover.producto.id, sucursalId: destino, tipo: mover.tipo, cantidad: Number(cantidad), motivo },
       ajuste ? 'Stock corregido' : 'Stock ingresado',
     )
     setBusy(false)
@@ -221,8 +268,24 @@ function MoverStock({ mover, onClose }) {
     <Modal open={Boolean(mover)} title={ajuste ? 'Contar stock' : 'Ingresar mercadería'} onClose={close}>
       {mover && (
         <form onSubmit={onSubmit} noValidate className="space-y-5">
+          {elegir && (
+            <Field id="local-stock" label="Local">
+              <select
+                id="local-stock"
+                value={destino}
+                onChange={(e) => setLocal(e.target.value)}
+                className={selectClass}
+              >
+                {activas.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.nombre}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
           <p className="text-mute-ink">
-            {mover.producto.nombre}: hoy figuran <strong className="text-ink">{mover.producto.stock}</strong>.
+            {mover.producto.nombre}: hoy figuran <strong className="text-ink">{actual}</strong>.
             {ajuste ? ' Escribí cuántos contaste y el sistema corrige la diferencia.' : ' Sumá lo que entró.'}
           </p>
           <Field id="cantidad" label={ajuste ? 'Unidades contadas' : 'Unidades que entraron'}>

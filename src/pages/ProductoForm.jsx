@@ -21,18 +21,25 @@ const EMPTY = {
   presentacion: '',
   costo: '',
   precio: '',
-  stock: '',
+  stocks: {},
   stock_minimo: '',
   proveedor_id: '',
   activo: true,
 }
-const TIPOS = { ingreso: 'Ingreso', compra: 'Compra', venta: 'Venta', ajuste: 'Conteo', anulacion: 'Anulación' }
+const TIPOS = {
+  ingreso: 'Ingreso',
+  compra: 'Compra',
+  venta: 'Venta',
+  ajuste: 'Conteo',
+  anulacion: 'Anulación',
+  traspaso: 'Traspaso',
+}
 
 export default function ProductoForm() {
   const { id } = useParams()
   const nuevo = id === 'nuevo'
   const navigate = useNavigate()
-  const { run } = useApp()
+  const { run, activas } = useApp()
   const { data } = useData('productos')
   const producto = data?.productos.find((p) => p.id === id)
   const [values, setValues] = useState(nuevo ? EMPTY : null)
@@ -70,7 +77,7 @@ export default function ProductoForm() {
           ...values,
           costo: Number(values.costo) || 0,
           precio: Number(values.precio) || 0,
-          stock: Number(values.stock) || 0,
+          stocks: Object.fromEntries(Object.entries(values.stocks ?? {}).map(([k, v]) => [k, Number(v) || 0])),
           stock_minimo: Number(values.stock_minimo) || 0,
         },
       },
@@ -163,12 +170,17 @@ export default function ProductoForm() {
               </p>
             )}
             <div className="grid gap-5 sm:grid-cols-2">
-              {nuevo && (
-                <Field id="stock" label="Stock inicial" optional>
-                  <NumberInput id="stock" value={values.stock} onChange={set('stock')} />
-                </Field>
-              )}
-              <Field id="stock_minimo" label="Stock mínimo" hint="Avisa cuando queda esto o menos.">
+              {nuevo &&
+                activas.map((l) => (
+                  <Field key={l.id} id={`stock-${l.id}`} label={`Stock inicial en ${l.nombre}`} optional>
+                    <NumberInput
+                      id={`stock-${l.id}`}
+                      value={values.stocks?.[l.id] ?? ''}
+                      onChange={(v) => set('stocks')({ ...values.stocks, [l.id]: v })}
+                    />
+                  </Field>
+                ))}
+              <Field id="stock_minimo" label="Stock mínimo" hint="En cada local. Avisa cuando queda esto o menos.">
                 <NumberInput id="stock_minimo" value={values.stock_minimo} onChange={set('stock_minimo')} />
               </Field>
             </div>
@@ -202,6 +214,7 @@ function Movimientos({ productoId }) {
           <thead className="text-mute-ink">
             <tr>
               <th className="py-2 font-semibold">Fecha</th>
+              <th className="font-semibold">Local</th>
               <th className="font-semibold">Tipo</th>
               <th className="text-right font-semibold">Cantidad</th>
               <th className="text-right font-semibold">Quedó</th>
@@ -212,6 +225,7 @@ function Movimientos({ productoId }) {
             {data.map((m) => (
               <tr key={m.id}>
                 <td className="py-2">{day(m.created_at)}</td>
+                <td>{m.sucursal}</td>
                 <td>{TIPOS[m.tipo] ?? m.tipo}</td>
                 <td className={`text-right tabular-nums ${m.cantidad < 0 ? 'text-danger' : 'text-ok'}`}>
                   {m.cantidad > 0 ? `+${m.cantidad}` : m.cantidad}

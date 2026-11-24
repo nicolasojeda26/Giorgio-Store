@@ -18,9 +18,11 @@ import {
 } from '../components/ui.jsx'
 
 export default function NuevaCompra() {
-  const { run } = useApp()
+  const { run, sucursal, activas } = useApp()
   const navigate = useNavigate()
   const { data } = useData('productos')
+  // Local al que llega la mercadería (y de cuya caja sale lo que se paga ahora).
+  const [local, setLocal] = useState(sucursal || activas[0]?.id || '')
   const [items, setItems] = useState([])
   const [proveedorId, setProveedorId] = useState('')
   const [fecha, setFecha] = useState(today())
@@ -53,6 +55,7 @@ export default function NuevaCompra() {
       'registrarCompra',
       {
         compra: {
+          sucursalId: local,
           proveedorId: proveedorId || null,
           fecha,
           vencimiento: pagado < total ? vencimiento || null : null,
@@ -78,6 +81,15 @@ export default function NuevaCompra() {
       <PageHeader title="Nueva compra" back="/compras" />
       <form onSubmit={onSubmit} noValidate className="space-y-4">
         <section className={`${cardClass} grid gap-5 p-5 sm:grid-cols-2`}>
+          <Field id="local-compra" label="Llega a" hint="Ahí se suma el stock y de esa caja sale lo que pagues ahora.">
+            <select id="local-compra" value={local} onChange={(e) => setLocal(e.target.value)} className={selectClass}>
+              {activas.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.nombre}
+                </option>
+              ))}
+            </select>
+          </Field>
           <Field id="proveedor" label="Proveedor" optional>
             <select
               id="proveedor"

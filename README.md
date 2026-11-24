@@ -6,16 +6,21 @@ No es una tienda ni una caja registradora: las ventas se cargan a mano y el sist
 
 ## Qué hace
 
-| Sección | Dueño | Empleado |
-|---|---|---|
-| **Inicio** | Vendido hoy, resultado del mes, avance del punto de equilibrio, stock bajo, deudas por vencer | Lo que vendió hoy y el stock bajo |
-| **Ventas** | Registrar, ver todas con costo, comisión y ganancia, anular | Registrar y ver las propias (sin costos) |
-| **Stock** | Productos con costo, precio, margen, stock mínimo; ingresar mercadería; contar (ajuste); historial de movimientos; stock valorizado | Ver stock y precios, ingresar mercadería |
-| **Compras** | Compras a proveedores (suman stock y actualizan el costo), pagos parciales, deudas y vencimientos, proveedores | — |
-| **Caja** | Saldos por cuenta (efectivo, banco, Mercado Pago), movimientos del mes, gastos fijos sin pagar, aportes y retiros | — |
-| **Finanzas** | Resultado del mes, margen de contribución, punto de equilibrio, ventas por día, rentabilidad por producto, gastos fijos, stock y deudas | — |
-| **Calculadoras** | Precio de venta (costos + comisiones + IVA + retenciones + envío + ganancia buscada), "¿Me alcanza?" (ventas estimadas por producto vs. gastos y sueldo) y punto de equilibrio rápido | — |
-| **Ajustes** | Negocio y sueldo del dueño, medios de pago con sus comisiones, usuarios | Cambiar su contraseña |
+Funciona para **dos locales** (o más): cada uno tiene su stock, su caja y sus gastos fijos; los productos y los precios son los mismos. El dueño elige arriba con qué local trabaja o ve "Todos los locales".
+
+| Sección | Dueño | Encargado (su local) | Vendedor (su local) |
+|---|---|---|---|
+| **Inicio** | Vendido hoy, resultado del mes, cada local, punto de equilibrio, stock bajo, deudas | Vendido hoy en el local, stock bajo | Lo que vendió hoy, stock bajo |
+| **Ventas** | Registrar (eligiendo el local), ver con costo y ganancia, anular | Registrar, ver las del local, anular | Registrar y ver las propias |
+| **Stock** | Productos con costo, precio y margen; stock de cada local; ingresar, contar, historial | Ingresar y contar en su local (sin costos) | Ingresar mercadería; ve el stock del otro local |
+| **Traspasos** | De cualquier local a otro; anular | Mandar mercadería desde su local | — |
+| **Compras** | A proveedores: llegan a un local, suman stock, actualizan costo; deudas y pagos | — | — |
+| **Caja** | Por local o total: saldos por cuenta, movimientos, gastos fijos sin pagar, aportes y retiros | La de su local (sin aportes ni retiros) | — |
+| **Finanzas** | Resultado total y por local, comparación entre locales, punto de equilibrio, rentabilidad por producto, gastos fijos | — | — |
+| **Calculadoras** | Precio de venta, "¿Me alcanza?", punto de equilibrio rápido | — | — |
+| **Ajustes** | Negocio, sueldo, locales, medios de pago, usuarios | Su contraseña | Su contraseña |
+
+Gastos fijos: cada uno es de un local (alquiler, servicios, sueldos del local) o **general** del negocio (monotributo, contador). El resultado de un local descuenta solo lo suyo; los generales y el sueldo del dueño entran en el total.
 
 ### Cómo cuenta la plata
 
@@ -53,5 +58,6 @@ Para probar con backend en tu compu: `vercel dev` con `DATABASE_URL` y `SETUP_CO
 ## Pendiente
 
 - Las calculadoras extra que va a mandar Giorgio.
+- Nombre y dirección reales del segundo local (Ajustes > Locales).
 - Logo oficial (hoy es el wordmark tipográfico de `src/components/Logo.jsx`).
 - Cargar los productos reales (se puede sumar una importación desde Excel).

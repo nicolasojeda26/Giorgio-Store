@@ -11,10 +11,11 @@ import Productos from './pages/Productos.jsx'
 import ProductoForm from './pages/ProductoForm.jsx'
 import Ajustes from './pages/Ajustes.jsx'
 
-// Lo que solo usa el dueño se descarga recién cuando entra.
+// Lo que no usan los vendedores se descarga recién cuando se entra.
 const Compras = lazy(() => import('./pages/Compras.jsx'))
 const NuevaCompra = lazy(() => import('./pages/NuevaCompra.jsx'))
 const Caja = lazy(() => import('./pages/Caja.jsx'))
+const Traspasos = lazy(() => import('./pages/Traspasos.jsx'))
 const Finanzas = lazy(() => import('./pages/Finanzas.jsx'))
 const Calculadoras = lazy(() => import('./pages/Calculadoras.jsx'))
 
@@ -29,12 +30,13 @@ function Loading() {
 }
 
 export default function App() {
-  const { usuario, dueno, inicio } = useApp()
+  const { usuario, dueno, encargado, inicio } = useApp()
   if (usuario === undefined) return <Loading />
   if (!usuario) return <Login />
   if (!inicio) return <Loading />
 
   const soloDueno = (element) => (dueno ? element : <Navigate to="/" replace />)
+  const soloEncargado = (element) => (encargado ? element : <Navigate to="/" replace />)
   return (
     <Suspense fallback={<p className="p-10 text-mute-ink">Cargando…</p>}>
       <Routes>
@@ -46,7 +48,8 @@ export default function App() {
           <Route path="productos/:id" element={soloDueno(<ProductoForm />)} />
           <Route path="compras" element={soloDueno(<Compras />)} />
           <Route path="compras/nueva" element={soloDueno(<NuevaCompra />)} />
-          <Route path="caja" element={soloDueno(<Caja />)} />
+          <Route path="caja" element={soloEncargado(<Caja />)} />
+          <Route path="traspasos" element={soloEncargado(<Traspasos />)} />
           <Route path="finanzas" element={soloDueno(<Finanzas />)} />
           <Route path="calculadoras" element={soloDueno(<Calculadoras />)} />
           <Route path="ajustes" element={<Ajustes />} />

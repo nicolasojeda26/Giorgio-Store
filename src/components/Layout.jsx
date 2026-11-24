@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
+  ArrowLeftRight,
   Calculator,
   ChartColumn,
   House,
@@ -14,26 +15,29 @@ import {
   X,
 } from 'lucide-react'
 import Logo from './Logo.jsx'
-import { useApp } from '../lib/app.jsx'
+import LocalPicker from './LocalPicker.jsx'
+import { ROLES, useApp } from '../lib/app.jsx'
 
+// rol: quién la ve. 'encargado' = encargados y dueño.
 const NAV = [
   { to: '/', label: 'Inicio', icon: House, end: true },
   { to: '/ventas', label: 'Ventas', icon: Receipt },
   { to: '/productos', label: 'Stock', icon: Package },
-  { to: '/compras', label: 'Compras', icon: Truck, dueno: true },
-  { to: '/caja', label: 'Caja', icon: Wallet, dueno: true },
-  { to: '/finanzas', label: 'Finanzas', icon: ChartColumn, dueno: true },
-  { to: '/calculadoras', label: 'Calculadoras', icon: Calculator, dueno: true },
+  { to: '/traspasos', label: 'Traspasos', icon: ArrowLeftRight, rol: 'encargado' },
+  { to: '/compras', label: 'Compras', icon: Truck, rol: 'dueno' },
+  { to: '/caja', label: 'Caja', icon: Wallet, rol: 'encargado' },
+  { to: '/finanzas', label: 'Finanzas', icon: ChartColumn, rol: 'dueno' },
+  { to: '/calculadoras', label: 'Calculadoras', icon: Calculator, rol: 'dueno' },
   { to: '/ajustes', label: 'Ajustes', icon: Settings },
 ]
 // En el celular, las tres más usadas van abajo; el resto, en "Más".
 const TABS = ['/', '/ventas', '/productos']
 
 export default function Layout() {
-  const { usuario, dueno, inicio, toast, logout } = useApp()
+  const { usuario, dueno, encargado, inicio, toast, logout } = useApp()
   const { pathname } = useLocation()
   const [menu, setMenu] = useState(false)
-  const items = NAV.filter((item) => !item.dueno || dueno)
+  const items = NAV.filter((item) => !item.rol || (item.rol === 'dueno' ? dueno : encargado))
   const bajos = inicio?.stockBajo.length ?? 0
 
   useEffect(() => setMenu(false), [pathname])
@@ -68,12 +72,15 @@ export default function Layout() {
           <Logo />
         </Link>
         <p className="eyebrow mt-3 text-gold">Stock y finanzas</p>
-        <nav aria-label="Secciones" className="mt-8 flex flex-col gap-1">
+        <div className="mt-6">
+          <LocalPicker id="local-lateral" />
+        </div>
+        <nav aria-label="Secciones" className="mt-5 flex flex-col gap-1">
           {items.map((item) => link(item, sideClass))}
         </nav>
         <div className="mt-auto space-y-1 border-t border-ink-3 pt-4 text-sm">
           <p className="truncate px-3 text-paper">{usuario.nombre}</p>
-          <p className="truncate px-3 pb-2 text-mute">{dueno ? 'Dueño' : 'Empleado'}</p>
+          <p className="truncate px-3 pb-2 text-mute">{ROLES[usuario.rol]}</p>
           <button
             type="button"
             onClick={logout}
@@ -90,7 +97,7 @@ export default function Layout() {
           <Link to="/" className="font-display text-[1.375rem] uppercase leading-none">
             Giorgio
           </Link>
-          <span className="truncate pl-4 text-sm text-mute">{usuario.nombre}</span>
+          <LocalPicker id="local-arriba" compact />
         </header>
 
         <main id="contenido" className="mx-auto w-full max-w-5xl px-5 pb-28 pt-6 lg:px-10 lg:pb-16 lg:pt-10">
@@ -145,7 +152,10 @@ export default function Layout() {
             />
             <div className="absolute inset-x-0 bottom-0 rounded-t-xl bg-ink p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] text-paper">
               <div className="flex items-center justify-between">
-                <p className="eyebrow text-gold">Más secciones</p>
+                <p className="min-w-0 truncate text-sm">
+                  <span className="font-semibold">{usuario.nombre}</span>
+                  <span className="text-mute"> · {ROLES[usuario.rol]}</span>
+                </p>
                 <button
                   type="button"
                   onClick={() => setMenu(false)}

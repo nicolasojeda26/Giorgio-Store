@@ -18,15 +18,17 @@ import {
   Switch,
   cardClass,
   inputClass,
+  selectClass,
 } from '../components/ui.jsx'
 
 export default function Finanzas() {
+  const { sucursal, nombreLocal } = useApp()
   const [mes, setMes] = useState(thisMonth())
   const { data, error } = useData('finanzas', { mes })
 
   return (
     <>
-      <PageHeader title="Finanzas">
+      <PageHeader title="Finanzas" subtitle={sucursal ? nombreLocal(sucursal) : 'Todos los locales'}>
         <div className="mt-4">
           <MonthPicker value={mes} onChange={setMes} />
         </div>
@@ -37,6 +39,7 @@ export default function Finanzas() {
       ) : (
         <>
           <Resultado data={data} />
+          {!data.sucursalId && data.porLocal.length > 1 && <PorLocal data={data} />}
           <Equilibrio data={data} />
           <VentasPorDia dias={data.dias} mes={data.mes} />
           <Rentabilidad productos={data.productos} />
@@ -50,6 +53,14 @@ export default function Finanzas() {
 
 function Resultado({ data }) {
   const r = data.resumen
+  const local = Boolean(data.sucursalId)
+  const gastos = local
+    ? [['Gastos fijos del local', -data.gastosFijos]]
+    : [
+        ['Gastos fijos de los locales', -(data.gastosFijos - data.gastosGenerales)],
+        ['Gastos generales del negocio', -data.gastosGenerales, 'Los que no son de un local (monotributo, etc.)'],
+        ['Tu sueldo', -data.sueldoDueno, data.sueldoDueno ? undefined : 'Cargalo en Ajustes para que cuente'],
+      ]
   const filas = [
     [
       'Ventas',
@@ -59,8 +70,7 @@ function Resultado({ data }) {
     ['Costo de la mercadería vendida', -r.costoMercaderia],
     ['Comisiones de medios de pago', -r.comisiones],
     ['Margen de contribución', r.contribucion, `${percent(r.margenContribucion)} de lo vendido`, true],
-    ['Gastos fijos', -data.gastosFijos],
-    ['Tu sueldo', -data.sueldoDueno, data.sueldoDueno ? undefined : 'Cargalo en Ajustes para que cuente'],
+    ...gastos,
     ['Gastos variables y otros', -r.otrosEgresos, 'Los egresos de Caja de esas categorías'],
   ]
   return (
@@ -84,13 +94,19 @@ function Resultado({ data }) {
           ))}
           <div className="flex items-baseline justify-between gap-4 pt-3">
             <dt className="text-[1.125rem] font-semibold">
-              {r.resultado >= 0 ? 'Ganancia del mes' : 'Pérdida del mes'}
+              {local ? 'Resultado del local' : r.resultado >= 0 ? 'Ganancia del mes' : 'Pérdida del mes'}
             </dt>
             <dd className={`text-[1.5rem] font-semibold tabular-nums ${r.resultado >= 0 ? 'text-ok' : 'text-danger'}`}>
               {money(r.resultado)}
             </dd>
           </div>
         </dl>
+        {local && (
+          <p className="mt-3 text-sm text-mute-ink">
+            Es lo que deja este local antes de los gastos generales y tu sueldo. El resultado del negocio completo está
+            en &quot;Todos los locales&quot;.
+          </p>
+        )}
       </div>
       <div className="grid content-start gap-3">
         <Stat tone={r.resultado >= 0 ? 'ok' : 'danger'} label="Resultado" value={money(r.resultado)} />
@@ -132,7 +148,11 @@ function Equilibrio({ data }) {
             <Stat
               label="Hay que vender"
               value={money(pe.ventas)}
-              hint={`Para cubrir ${money(pe.fijos)} de gastos fijos y sueldo`}
+              hint={
+                data.sucursalId
+                  ? `Para cubrir ${money(pe.fijos)} de gastos fijos del local`
+                  : `Para cubrir ${money(pe.fijos)} de gastos fijos y sueldo`
+              }
             />
             <Stat
               label="En unidades"
@@ -284,9 +304,99 @@ function Rentabilidad({ productos }) {
   )
 }
 
+/** Con "Todos los locales": cuánto deja cada local y cómo se llega al resultado del negocio. */
+function PorLocal({ data }) {
+  const locales = data.porLocal
+  const suma = locales.reduce((s, l) => s + l.resultado, 0)
+  return (
+    <section aria-labelledby="locales" className={`${cardClass} mt-4 p-5`}>
+      <h2 id="locales" className="font-display text-[1.5rem]">
+        Cada local
+      </h2>
+      <p className="text-sm text-mute-ink">
+        Lo que deja cada local después de su mercadería, comisiones, gastos fijos y gastos variables.
+      </p>
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full min-w-[36rem] text-left text-sm">
+          <thead className="text-mute-ink">
+            <tr>
+              <th scope="col" className="py-2 font-semibold">
+                Local
+              </th>
+              <th scope="col" className="text-right font-semibold">
+                Ventas
+              </th>
+              <th scope="col" className="text-right font-semibold">
+                Margen
+              </th>
+              <th scope="col" className="text-right font-semibold">
+                Gastos fijos
+              </th>
+              <th scope="col" className="text-right font-semibold">
+                Variables
+              </th>
+              <th scope="col" className="text-right font-semibold">
+                Resultado
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {locales.map((l) => (
+              <tr key={l.id}>
+                <th scope="row" className="py-2.5 font-semibold">
+                  {l.nombre}
+                </th>
+                <td className="text-right tabular-nums">{money(l.ventas)}</td>
+                <td className="text-right tabular-nums">
+                  {money(l.contribucion)}
+                  <span className="block text-xs text-mute-ink">
+                    {l.ventas ? percent(l.contribucion / l.ventas) : '—'}
+                  </span>
+                </td>
+                <td className="text-right tabular-nums text-mute-ink">{money(-l.fijos)}</td>
+                <td className="text-right tabular-nums text-mute-ink">{money(-l.variables)}</td>
+                <td className={`text-right font-semibold tabular-nums ${l.resultado >= 0 ? 'text-ok' : 'text-danger'}`}>
+                  {money(l.resultado)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot className="border-t-2 border-ink/20">
+            <tr>
+              <th scope="row" colSpan={5} className="py-2 font-normal text-mute-ink">
+                Suma de los locales
+              </th>
+              <td className="text-right tabular-nums">{money(suma)}</td>
+            </tr>
+            <tr>
+              <th scope="row" colSpan={5} className="py-2 font-normal text-mute-ink">
+                Gastos generales y tu sueldo
+              </th>
+              <td className="text-right tabular-nums text-mute-ink">
+                {money(-(data.gastosGenerales + data.sueldoDueno))}
+              </td>
+            </tr>
+            <tr>
+              <th scope="row" colSpan={5} className="py-2 font-semibold">
+                Resultado del negocio
+              </th>
+              <td
+                className={`text-right font-semibold tabular-nums ${data.resumen.resultado >= 0 ? 'text-ok' : 'text-danger'}`}
+              >
+                {money(data.resumen.resultado)}
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+  )
+}
+
 function GastosFijos() {
-  const { run } = useApp()
-  const { data } = useData('gastosFijos')
+  const { run, sucursal } = useApp()
+  // Siempre todos: los generales y los de cada local, cada uno con su etiqueta.
+  const { data } = useData('gastosFijos', { sucursalId: null })
   const [editar, setEditar] = useState(null)
   const [borrar, setBorrar] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -303,7 +413,9 @@ function GastosFijos() {
         </div>
         <Button
           variant="secondary"
-          onClick={() => setEditar({ nombre: '', monto: '', dia_pago: '', activo: true })}
+          onClick={() =>
+            setEditar({ nombre: '', monto: '', dia_pago: '', activo: true, sucursal_id: sucursal || null })
+          }
           className="min-h-11 px-4"
         >
           <Plus size={16} strokeWidth={2} aria-hidden="true" />
@@ -315,7 +427,10 @@ function GastosFijos() {
           <li key={g.id} className={`flex items-center gap-3 py-2 ${g.activo ? '' : 'opacity-50'}`}>
             <span className="min-w-0 flex-1">
               <span className="block truncate font-semibold">{g.nombre}</span>
-              {g.dia_pago && <span className="text-sm text-mute-ink">Vence el día {g.dia_pago}</span>}
+              <span className="text-sm text-mute-ink">
+                {g.sucursal ?? 'General'}
+                {g.dia_pago && ` · vence el día ${g.dia_pago}`}
+              </span>
             </span>
             <span className={`tabular-nums ${g.monto === 0 ? 'text-mute-ink' : ''}`}>{money(g.monto)}</span>
             <button
@@ -363,7 +478,7 @@ function GastosFijos() {
 }
 
 function GastoForm({ gasto, onClose }) {
-  const { run } = useApp()
+  const { run, activas } = useApp()
   const [values, setValues] = useState(null)
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -401,6 +516,25 @@ function GastoForm({ gasto, onClose }) {
               onChange={(e) => set('nombre')(e.target.value)}
               className={inputClass}
             />
+          </Field>
+          <Field
+            id="g-local"
+            label="De qué local"
+            hint="General: lo que es del negocio entero y no de un local (monotributo, contador)."
+          >
+            <select
+              id="g-local"
+              value={v.sucursal_id ?? ''}
+              onChange={(e) => set('sucursal_id')(e.target.value || null)}
+              className={selectClass}
+            >
+              <option value="">General del negocio</option>
+              {activas.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.nombre}
+                </option>
+              ))}
+            </select>
           </Field>
           <div className="grid gap-5 sm:grid-cols-2">
             <Field id="g-monto" label="Monto por mes">

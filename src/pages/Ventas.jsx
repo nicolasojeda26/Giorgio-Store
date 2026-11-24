@@ -7,7 +7,8 @@ import MonthPicker from '../components/MonthPicker.jsx'
 import { Button, Confirm, Empty, PageHeader, Stat, cardClass } from '../components/ui.jsx'
 
 export default function Ventas() {
-  const { dueno, run, notify } = useApp()
+  const { usuario, dueno, encargado, sucursal, nombreLocal, run, notify } = useApp()
+  const todos = dueno && !sucursal
   const { state } = useLocation()
   const [mes, setMes] = useState(thisMonth())
   const { data, error } = useData('ventas', { mes })
@@ -34,6 +35,9 @@ export default function Ventas() {
     <>
       <PageHeader
         title="Ventas"
+        subtitle={
+          usuario.rol === 'vendedor' ? 'Las que cargaste vos' : todos ? 'Todos los locales' : nombreLocal(sucursal)
+        }
         action={
           <Link to="/ventas/nueva" className="btn btn-gold hidden sm:inline-flex">
             <Plus size={18} strokeWidth={2} aria-hidden="true" />
@@ -52,7 +56,7 @@ export default function Ventas() {
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Stat
-          label={dueno ? 'Vendido en el mes' : 'Vendiste en el mes'}
+          label={usuario.rol === 'vendedor' ? 'Vendiste en el mes' : 'Vendido en el mes'}
           value={money(total)}
           hint={validas.length === 1 ? '1 venta' : `${validas.length} ventas`}
         />
@@ -84,7 +88,8 @@ export default function Ventas() {
                   )}
                 </p>
                 <p className="text-sm text-mute-ink">
-                  {day(v.fecha)} · {v.medio_nombre}
+                  {day(v.fecha)}
+                  {todos && ` · ${v.sucursal}`} · {v.medio_nombre}
                   {v.cliente && ` · ${v.cliente}`}
                   {v.usuario && ` · cargó ${v.usuario}`}
                 </p>
@@ -111,12 +116,16 @@ export default function Ventas() {
                 {v.nota}
               </p>
             )}
-            {dueno && v.estado === 'ok' && (
+            {encargado && v.estado === 'ok' && (
               <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3 text-sm">
-                <span className="text-mute-ink">
-                  Costo {money(v.costo)} · comisión {money(v.comision)} · queda{' '}
-                  <strong className="text-ink">{money(v.total - v.costo - v.comision)}</strong>
-                </span>
+                {dueno ? (
+                  <span className="text-mute-ink">
+                    Costo {money(v.costo)} · comisión {money(v.comision)} · queda{' '}
+                    <strong className="text-ink">{money(v.total - v.costo - v.comision)}</strong>
+                  </span>
+                ) : (
+                  <span />
+                )}
                 <Button variant="secondary" onClick={() => setAnular(v)} className="min-h-11 px-4">
                   Anular
                 </Button>

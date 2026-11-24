@@ -5,14 +5,20 @@ import { day, money, percent, today } from '../lib/format.js'
 import { Stat, cardClass } from '../components/ui.jsx'
 
 export default function Inicio() {
-  const { usuario, dueno, inicio } = useApp()
+  const { usuario, dueno, inicio, sucursal, nombreLocal } = useApp()
   const nombre = usuario.nombre.split(' ')[0]
+  // El dueño ve el mes (del local elegido o de los dos); el resto, lo del día y el stock de su local.
+  const { data: fin } = useData(dueno ? 'finanzas' : null)
+  const todos = dueno && !sucursal
+  const ventasHoy = `${inicio.hoy.ventas} ${inicio.hoy.ventas === 1 ? 'venta' : 'ventas'}`
 
   return (
     <>
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="eyebrow text-gold-deep">{inicio.ajustes.negocio}</p>
+        <div className="min-w-0">
+          <p className="eyebrow text-gold-deep">
+            {inicio.ajustes.negocio} · {todos ? 'Todos los locales' : nombreLocal(sucursal)}
+          </p>
           <h1 className="mt-1 text-[2.25rem] md:text-[2.75rem]">Hola, {nombre}</h1>
         </div>
         <Link to="/ventas/nueva" className="btn btn-gold w-full sm:w-auto">
@@ -24,14 +30,19 @@ export default function Inicio() {
       <section aria-label="Hoy" className="grid gap-3 sm:grid-cols-2">
         <Stat
           tone="dark"
-          label={dueno ? 'Vendido hoy' : 'Vendiste hoy'}
+          label={usuario.rol === 'vendedor' ? 'Vendiste hoy' : 'Vendido hoy'}
           value={money(inicio.hoy.total)}
-          hint={`${inicio.hoy.ventas} ${inicio.hoy.ventas === 1 ? 'venta' : 'ventas'}`}
+          hint={ventasHoy}
         />
-        {dueno ? <Mes /> : <Stat label="Productos con stock bajo" value={inicio.stockBajo.length} />}
+        {dueno ? (
+          <Mes fin={fin} local={!todos} />
+        ) : (
+          <Stat label="Productos con stock bajo" value={inicio.stockBajo.length} />
+        )}
       </section>
 
-      {dueno && <Equilibrio />}
+      {todos && fin && fin.porLocal.length > 1 && <PorLocal locales={fin.porLocal} />}
+      {dueno && fin && <Equilibrio fin={fin} local={!todos} />}
 
       <section aria-labelledby="bajo" className={`${cardClass} mt-4 p-5`}>
         <div className="flex items-center justify-between gap-4">
@@ -47,10 +58,12 @@ export default function Inicio() {
         ) : (
           <ul className="mt-3 divide-y divide-line">
             {inicio.stockBajo.slice(0, 8).map((p) => (
-              <li key={p.id} className="flex items-center justify-between gap-4 py-2.5">
+              <li key={`${p.id}-${p.sucursal_id}`} className="flex items-center justify-between gap-4 py-2.5">
                 <span className="min-w-0">
                   <span className="block truncate font-semibold">{p.nombre}</span>
-                  {p.presentacion && <span className="text-sm text-mute-ink">{p.presentacion}</span>}
+                  <span className="text-sm text-mute-ink">
+                    {[p.presentacion, todos && nombreLocal(p.sucursal_id)].filter(Boolean).join(' · ')}
+                  </span>
                 </span>
                 <span className={`shrink-0 tabular-nums ${p.stock <= 0 ? 'font-bold text-danger' : ''}`}>
                   {p.stock} <span className="text-sm text-mute-ink">/ mín. {p.stock_minimo}</span>
@@ -61,17 +74,16 @@ export default function Inicio() {
         )}
       </section>
 
-      {dueno && <Deudas />}
+      {dueno && fin && <Deudas deudas={fin.deudas} todos={todos} />}
     </>
   )
 }
 
-function Mes() {
-  const { data } = useData('finanzas')
-  const r = data?.resumen
+function Mes({ fin, local }) {
+  const r = fin?.resumen
   return (
     <Stat
-      label="Resultado del mes"
+      label={local ? 'Resultado del local en el mes' : 'Resultado del mes'}
       value={r ? money(r.resultado) : '…'}
       tone={r ? (r.resultado >= 0 ? 'ok' : 'danger') : 'default'}
       hint={r ? `Vendido ${money(r.ventas)} · margen ${percent(r.margenContribucion)}` : 'Calculando…'}
@@ -79,10 +91,36 @@ function Mes() {
   )
 }
 
-function Equilibrio() {
-  const { data } = useData('finanzas')
-  if (!data) return null
-  const pe = data.resumen.equilibrio
+/** Con "Todos los locales": cómo viene cada uno en el mes. */
+function PorLocal({ locales }) {
+  return (
+    <section aria-labelledby="por-local" className={`${cardClass} mt-4 p-5`}>
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 id="por-local" className="font-display text-[1.5rem]">
+          Locales este mes
+        </h2>
+        <Link to="/finanzas" className="text-sm font-semibold underline underline-offset-4">
+          Comparar
+        </Link>
+      </div>
+      <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+        {locales.map((l) => (
+          <li key={l.id} className="rounded-md border border-line p-4">
+            <p className="font-semibold">{l.nombre}</p>
+            <p className="mt-1 text-[1.375rem] font-semibold tabular-nums">{money(l.ventas)}</p>
+            <p className="text-sm text-mute-ink">
+              {l.cantidad === 1 ? '1 venta' : `${l.cantidad} ventas`} · resultado del local{' '}
+              <strong className={l.resultado >= 0 ? 'text-ok' : 'text-danger'}>{money(l.resultado)}</strong>
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function Equilibrio({ fin, local }) {
+  const pe = fin.resumen.equilibrio
   return (
     <section aria-labelledby="pe" className={`${cardClass} mt-4 p-5`}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -101,7 +139,9 @@ function Equilibrio() {
       ) : (
         <>
           <p className="mt-2 text-mute-ink">
-            Para cubrir los gastos fijos y tu sueldo ({money(pe.fijos)}) este mes hay que vender{' '}
+            {local
+              ? `Para cubrir los gastos fijos del local (${money(pe.fijos)}) este mes hay que vender `
+              : `Para cubrir todos los gastos fijos y tu sueldo (${money(pe.fijos)}) este mes hay que vender `}
             <strong className="text-ink">{money(pe.ventas)}</strong>
             {pe.unidades ? ` (unas ${pe.unidades} unidades)` : ''}.
           </p>
@@ -129,9 +169,7 @@ function Equilibrio() {
   )
 }
 
-function Deudas() {
-  const { data } = useData('finanzas')
-  const deudas = data?.deudas ?? []
+function Deudas({ deudas, todos }) {
   if (!deudas.length) return null
   const hoy = today()
   return (
@@ -150,7 +188,10 @@ function Deudas() {
           return (
             <li key={d.id} className="flex items-center justify-between gap-4 py-2.5">
               <span className="min-w-0">
-                <span className="block truncate font-semibold">{d.proveedor ?? `Compra ${d.numero}`}</span>
+                <span className="block truncate font-semibold">
+                  {d.proveedor ?? `Compra ${d.numero}`}
+                  {todos && <span className="font-normal text-mute-ink"> · {d.sucursal}</span>}
+                </span>
                 <span
                   className={`flex items-center gap-1 text-sm ${vencida ? 'font-semibold text-danger' : 'text-mute-ink'}`}
                 >

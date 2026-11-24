@@ -21,6 +21,7 @@ import {
 } from '../components/ui.jsx'
 
 export default function Compras() {
+  const { sucursal, nombreLocal } = useApp()
   const [params, setParams] = useSearchParams()
   const vista = params.get('vista') ?? 'compras'
   const compras = useData('compras')
@@ -33,6 +34,7 @@ export default function Compras() {
     <>
       <PageHeader
         title="Compras"
+        subtitle={sucursal ? `Llegadas a ${nombreLocal(sucursal)}` : 'Todos los locales'}
         action={
           <Link to="/compras/nueva" className="btn btn-gold min-h-12 px-5">
             <Plus size={18} strokeWidth={2} aria-hidden="true" />
@@ -103,7 +105,7 @@ function ListaCompras({ compras, loaded }) {
                     )}
                   </p>
                   <p className="text-sm text-mute-ink">
-                    {day(c.fecha)}
+                    {day(c.fecha)} · llegó a {c.sucursal}
                     {c.vencimiento && saldo > 0 && (
                       <span className={vencida ? 'font-semibold text-danger' : ''}>
                         {' '}
@@ -169,7 +171,10 @@ function ListaCompras({ compras, loaded }) {
 }
 
 function Pago({ compra, onClose }) {
-  const { run } = useApp()
+  const { run, activas } = useApp()
+  // Sale de la caja del local que se elija; arranca en el local al que llegó la compra.
+  const [local, setLocal] = useState('')
+  const localPago = local || compra?.sucursal_id || ''
   const saldo = compra ? compra.total - compra.pagado : 0
   const [monto, setMonto] = useState('')
   const [cuenta, setCuenta] = useState('efectivo')
@@ -178,6 +183,7 @@ function Pago({ compra, onClose }) {
   const [busy, setBusy] = useState(false)
   const close = () => {
     setMonto('')
+    setLocal('')
     setError(null)
     onClose()
   }
@@ -194,7 +200,7 @@ function Pago({ compra, onClose }) {
             setBusy(true)
             const { ok } = await run(
               'pagarCompra',
-              { compraId: compra.id, monto: value, cuenta, fecha },
+              { compraId: compra.id, monto: value, cuenta, fecha, sucursalId: localPago },
               'Pago registrado',
             )
             setBusy(false)
@@ -209,6 +215,20 @@ function Pago({ compra, onClose }) {
             <MoneyInput id="monto" value={monto} onChange={setMonto} />
           </Field>
           <div className="grid gap-5 sm:grid-cols-2">
+            <Field id="local-pago" label="Caja del local">
+              <select
+                id="local-pago"
+                value={localPago}
+                onChange={(e) => setLocal(e.target.value)}
+                className={selectClass}
+              >
+                {activas.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.nombre}
+                  </option>
+                ))}
+              </select>
+            </Field>
             <Field id="cuenta" label="Sale de">
               <select id="cuenta" value={cuenta} onChange={(e) => setCuenta(e.target.value)} className={selectClass}>
                 {Object.entries(CUENTAS).map(([value, label]) => (

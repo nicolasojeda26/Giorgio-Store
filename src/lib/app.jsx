@@ -2,10 +2,25 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { call, session as fetchSession } from './api.js'
 
 /*
- * Estado general: usuario, datos de arranque (medios de pago, ajustes, stock bajo, ventas de hoy) y avisos.
- * Las pantallas piden sus propios datos con useData(); para guardar usan run(), que muestra el resultado.
+ * Estado general: usuario, local elegido, datos de arranque (locales, medios de pago, ajustes, stock bajo, ventas de
+ * hoy) y avisos. Las pantallas piden sus propios datos con useData(), que manda solo el local elegido; para guardar
+ * usan run(), que muestra el resultado.
+ *
+ * Local: el encargado y el vendedor trabajan siempre en el suyo. El dueño elige uno o "Todos los locales" (''),
+ * y la elección se recuerda en este navegador.
  */
 const AppContext = createContext(null)
+
+const LOCAL_KEY = 'giorgio:local'
+const leerLocal = () => {
+  try {
+    return localStorage.getItem(LOCAL_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+export const ROLES = { dueno: 'Dueño', encargado: 'Encargado', vendedor: 'Vendedor' }
 
 export function AppProvider({ children }) {
   const [usuario, setUsuario] = useState(undefined) // undefined: verificando · null: sin sesión
@@ -14,6 +29,11 @@ export function AppProvider({ children }) {
   const [inicio, setInicio] = useState(null)
   const [toast, setToast] = useState(null)
   const [version, setVersion] = useState(0) // sube después de cada cambio: las pantallas vuelven a leer
+  const [elegido, setElegido] = useState(leerLocal)
+
+  const dueno = usuario?.rol === 'dueno'
+  // Lo que se manda al servidor: el local elegido por el dueño, o el local de cada empleado.
+  const sucursal = dueno ? elegido : (usuario?.sucursal_id ?? '')
 
   useEffect(() => {
     fetchSession()
@@ -28,13 +48,27 @@ export function AppProvider({ children }) {
   }, [])
 
   const refresh = useCallback(async () => {
-    setInicio(await call('inicio'))
+    setInicio(await call('inicio', { sucursalId: sucursal || null }))
     setVersion((v) => v + 1)
-  }, [])
+  }, [sucursal])
 
   useEffect(() => {
     if (usuario) refresh().catch((error) => setBootError(error.message))
   }, [usuario, refresh])
+
+  const setSucursal = useCallback((id) => {
+    setElegido(id)
+    try {
+      localStorage.setItem(LOCAL_KEY, id)
+    } catch {
+      // Sin almacenamiento: se vuelve a elegir la próxima vez.
+    }
+  }, [])
+
+  // Si el local elegido se desactivó o ya no existe, vuelve a "Todos los locales".
+  useEffect(() => {
+    if (dueno && elegido && inicio && !inicio.sucursales.some((x) => x.id === elegido && x.activo)) setSucursal('')
+  }, [dueno, elegido, inicio, setSucursal])
 
   useEffect(() => {
     const expired = () => {
@@ -81,10 +115,18 @@ export function AppProvider({ children }) {
     setUsuario(null)
   }, [])
 
-  const value = useMemo(
-    () => ({
+  const value = useMemo(() => {
+    const sucursales = inicio?.sucursales ?? []
+    return {
       usuario,
-      dueno: usuario?.rol === 'dueno',
+      dueno,
+      // Encargado o dueño: corrige stock, maneja la caja del local y hace traspasos.
+      encargado: dueno || usuario?.rol === 'encargado',
+      sucursal,
+      setSucursal,
+      sucursales,
+      activas: sucursales.filter((x) => x.activo),
+      nombreLocal: (id) => sucursales.find((x) => x.id === id)?.nombre ?? '',
       primerUso,
       bootError,
       inicio,
@@ -95,20 +137,38 @@ export function AppProvider({ children }) {
       refresh,
       login,
       logout,
-    }),
-    [usuario, primerUso, bootError, inicio, version, toast, notify, run, refresh, login, logout],
-  )
+    }
+  }, [
+    usuario,
+    dueno,
+    sucursal,
+    setSucursal,
+    primerUso,
+    bootError,
+    inicio,
+    version,
+    toast,
+    notify,
+    run,
+    refresh,
+    login,
+    logout,
+  ])
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>
 }
 
 export const useApp = () => useContext(AppContext)
 
-/** Lee datos de una acción y los vuelve a leer después de cada cambio (o cuando cambian los parámetros). */
+/**
+ * Lee datos de una acción y los vuelve a leer después de cada cambio (o cuando cambian los parámetros o el local).
+ * Manda el local elegido, salvo que el payload traiga otro sucursalId. Con action vacía no pide nada.
+ */
 export function useData(action, payload = {}) {
-  const { version } = useApp()
-  const key = JSON.stringify(payload)
+  const { version, sucursal } = useApp()
+  const key = JSON.stringify({ sucursalId: sucursal || null, ...payload })
   const [state, setState] = useState({ data: null, error: null, loading: true })
   useEffect(() => {
+    if (!action) return
     let alive = true
     setState((prev) => ({ ...prev, loading: true }))
     call(action, JSON.parse(key))

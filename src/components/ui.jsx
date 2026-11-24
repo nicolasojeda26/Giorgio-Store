@@ -8,7 +8,7 @@ export const inputClass =
 
 export const cardClass = 'rounded-md border border-line bg-white/55'
 
-export function PageHeader({ title, back, action, children }) {
+export function PageHeader({ title, subtitle, back, action, children }) {
   return (
     <header className="mb-6">
       {back && (
@@ -21,7 +21,10 @@ export function PageHeader({ title, back, action, children }) {
         </Link>
       )}
       <div className="flex items-end justify-between gap-4">
-        <h1 className="text-[2.25rem] md:text-[2.75rem]">{title}</h1>
+        <div className="min-w-0">
+          {subtitle && <p className="eyebrow text-gold-deep">{subtitle}</p>}
+          <h1 className={`text-[2.25rem] md:text-[2.75rem] ${subtitle ? 'mt-1' : ''}`}>{title}</h1>
+        </div>
         {action}
       </div>
       {children}

@@ -53,7 +53,7 @@ export function client(deps, { ip = '1.1.1.1' } = {}) {
   return c
 }
 
-/** Sistema con dueño y un empleado ya creados, listos para usar. */
+/** Sistema con dueño, una encargada y vendedores en los dos locales, listos para usar. */
 export async function readySystem() {
   const system = await createSystem()
   const dueno = client(system.deps)
@@ -63,10 +63,16 @@ export async function readySystem() {
     email: 'giorgio@mail.com',
     password: 'clave-dueno-1',
   })
-  await dueno.ok('guardarUsuario', {
-    usuario: { nombre: 'Ana', email: 'ana@mail.com', rol: 'empleado', password: 'clave-ana-1' },
-  })
-  const empleado = client(system.deps, { ip: '2.2.2.2' })
-  await empleado.ok('ingresar', { email: 'ana@mail.com', password: 'clave-ana-1' })
-  return { ...system, dueno, empleado }
+  const { sucursales } = await dueno.ok('inicio')
+  const [centro, norte] = sucursales.map((x) => x.id)
+  const crear = async (nombre, email, rol, sucursal_id, ip) => {
+    await dueno.ok('guardarUsuario', { usuario: { nombre, email, rol, sucursal_id, password: `clave-${nombre}-1` } })
+    const c = client(system.deps, { ip })
+    await c.ok('ingresar', { email, password: `clave-${nombre}-1` })
+    return c
+  }
+  const encargada = await crear('Laura', 'laura@mail.com', 'encargado', centro, '4.4.4.4')
+  const empleado = await crear('Ana', 'ana@mail.com', 'vendedor', centro, '2.2.2.2')
+  const vendedorNorte = await crear('Beto', 'beto@mail.com', 'vendedor', norte, '5.5.5.5')
+  return { ...system, dueno, encargada, empleado, vendedorNorte, centro, norte }
 }

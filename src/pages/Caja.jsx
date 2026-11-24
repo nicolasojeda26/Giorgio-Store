@@ -23,9 +23,12 @@ const MANUALES = {
   ingreso: ['aporte', 'otro_ingreso'],
   egreso: ['gasto_fijo', 'gasto_variable', 'retiro', 'otro_egreso'],
 }
+// Aportes y retiros son plata del dueño: solo él los carga o los borra.
+const DEL_DUENO = ['aporte', 'retiro']
 
 export default function Caja() {
-  const { run } = useApp()
+  const { run, dueno, sucursal, nombreLocal } = useApp()
+  const todos = dueno && !sucursal
   const [mes, setMes] = useState(thisMonth())
   const { data, error } = useData('caja', { mes })
   const gastos = useData('gastosFijos')
@@ -37,13 +40,16 @@ export default function Caja() {
   const movimientos = (data?.movimientos ?? []).filter((m) => cuenta === 'todas' || m.cuenta === cuenta)
   const entradas = movimientos.filter((m) => m.tipo === 'ingreso').reduce((s, m) => s + m.monto, 0)
   const salidas = movimientos.filter((m) => m.tipo === 'egreso').reduce((s, m) => s + m.monto, 0)
-  const pagadosFijos = new Set((data?.movimientos ?? []).filter((m) => m.gasto_fijo_id).map((m) => m.gasto_fijo_id))
-  const pendientes = (gastos.data ?? []).filter((g) => g.activo && g.monto > 0 && !pagadosFijos.has(g.id))
+  // Gastos fijos sin pagar este mes: los del local (y, para el dueño, también los generales del negocio).
+  const pendientes = (gastos.data ?? []).filter(
+    (g) => g.activo && g.monto > 0 && g.pagado_mes === 0 && (todos || !g.sucursal_id || g.sucursal_id === sucursal),
+  )
 
   return (
     <>
       <PageHeader
         title="Caja"
+        subtitle={todos ? 'Todos los locales' : nombreLocal(sucursal)}
         action={
           <Button variant="gold" onClick={() => setNuevo({ tipo: 'egreso' })}>
             <Plus size={18} strokeWidth={2} aria-hidden="true" />
@@ -84,7 +90,8 @@ export default function Caja() {
                   <span className="font-semibold">{g.nombre}</span>
                   <span className="text-sm text-mute-ink">
                     {' '}
-                    · {money(g.monto)}
+                    · {todos || !g.sucursal_id ? `${g.sucursal ?? 'General'} · ` : ''}
+                    {money(g.monto)}
                     {g.dia_pago && ` · vence el ${g.dia_pago}`}
                   </span>
                 </span>
@@ -96,6 +103,7 @@ export default function Caja() {
                       tipo: 'egreso',
                       categoria: 'gasto_fijo',
                       gastoFijoId: g.id,
+                      sucursalId: g.sucursal_id ?? sucursal,
                       monto: g.monto,
                       descripcion: g.nombre,
                     })
@@ -136,7 +144,7 @@ export default function Caja() {
       )}
       <ul className="mt-4 divide-y divide-line rounded-md border border-line bg-white/55">
         {movimientos.map((m) => {
-          const manual = !m.venta_id && !m.compra_id
+          const manual = !m.venta_id && !m.compra_id && (dueno || !DEL_DUENO.includes(m.categoria))
           return (
             <li key={m.id} className="flex items-center gap-3 px-4 py-3">
               <span
@@ -160,7 +168,8 @@ export default function Caja() {
                   </span>
                 </span>
                 <span className="block truncate text-sm text-mute-ink">
-                  {day(m.fecha)} · {CATEGORIAS[m.categoria]} · {CUENTAS[m.cuenta]}
+                  {day(m.fecha)}
+                  {todos && ` · ${m.sucursal}`} · {CATEGORIAS[m.categoria]} · {CUENTAS[m.cuenta]}
                   {m.proveedor && ` · ${m.proveedor}`}
                 </span>
               </span>
@@ -202,7 +211,7 @@ export default function Caja() {
 }
 
 function Movimiento({ inicial, gastos, onClose }) {
-  const { run } = useApp()
+  const { run, dueno, sucursal, activas } = useApp()
   const [values, setValues] = useState(null)
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -218,8 +227,13 @@ function Movimiento({ inicial, gastos, onClose }) {
           descripcion: '',
           gastoFijoId: '',
           ...inicial,
+          // Local de la caja: el elegido, el del gasto fijo o, con "Todos", el primero (se puede cambiar).
+          sucursalId: inicial.sucursalId || sucursal || activas[0]?.id || '',
         }
       : null)
+  const categorias = v ? MANUALES[v.tipo].filter((c) => dueno || !DEL_DUENO.includes(c)) : []
+  // Gastos fijos que se pueden pagar desde la caja de ese local: los suyos y los generales.
+  const gastosLocal = v ? gastos.filter((g) => !g.sucursal_id || g.sucursal_id === v.sucursalId) : []
   const set = (field) => (value) => setValues({ ...v, [field]: value })
   const close = () => {
     setValues(null)
@@ -256,6 +270,22 @@ function Movimiento({ inicial, gastos, onClose }) {
               { value: 'ingreso', label: 'Entra plata' },
             ]}
           />
+          {dueno && !sucursal && (
+            <Field id="local-mov" label="Caja del local">
+              <select
+                id="local-mov"
+                value={v.sucursalId}
+                onChange={(e) => setValues({ ...v, sucursalId: e.target.value, gastoFijoId: '' })}
+                className={selectClass}
+              >
+                {activas.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.nombre}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )}
           <Field id="categoria" label="Categoría">
             <select
               id="categoria"
@@ -264,7 +294,7 @@ function Movimiento({ inicial, gastos, onClose }) {
               className={selectClass}
             >
               <option value="">Elegí una</option>
-              {MANUALES[v.tipo].map((c) => (
+              {categorias.map((c) => (
                 <option key={c} value={c}>
                   {CATEGORIAS[c]}
                 </option>
@@ -283,9 +313,10 @@ function Movimiento({ inicial, gastos, onClose }) {
                 className={selectClass}
               >
                 <option value="">Elegí uno</option>
-                {gastos.map((g) => (
+                {gastosLocal.map((g) => (
                   <option key={g.id} value={g.id}>
                     {g.nombre}
+                    {g.sucursal_id ? '' : ' (general)'}
                   </option>
                 ))}
               </select>

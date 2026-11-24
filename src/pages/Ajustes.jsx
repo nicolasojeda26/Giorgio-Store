@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Pencil, Plus } from 'lucide-react'
-import { useApp, useData } from '../lib/app.jsx'
+import { ROLES, useApp, useData } from '../lib/app.jsx'
 import { CUENTAS, decimal } from '../lib/format.js'
 import {
   Button,
@@ -24,13 +24,14 @@ export default function Ajustes() {
     <>
       <PageHeader title="Ajustes" />
       {dueno && <Negocio />}
+      {dueno && <Locales />}
       {dueno && <Medios />}
       {dueno && <Usuarios />}
       <Contrasena />
       <section className={`${cardClass} mt-4 p-5`}>
         <h2 className="font-display text-[1.5rem]">Sesión</h2>
         <p className="mt-1 text-mute-ink">
-          {usuario.nombre} · {usuario.email}
+          {usuario.nombre} · {usuario.email} · {ROLES[usuario.rol]}
         </p>
         <Button variant="secondary" onClick={logout} className="mt-4">
           Cerrar sesión
@@ -229,6 +230,115 @@ function MedioForm({ medio, onClose }) {
   )
 }
 
+function Locales() {
+  const { sucursales } = useApp()
+  const [editar, setEditar] = useState(null)
+  return (
+    <section className={`${cardClass} mt-4 p-5`} aria-labelledby="locales">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 id="locales" className="font-display text-[1.5rem]">
+            Locales
+          </h2>
+          <p className="text-sm text-mute-ink">Cada local tiene su stock, su caja y sus gastos fijos.</p>
+        </div>
+        <Button
+          variant="secondary"
+          onClick={() => setEditar({ nombre: '', direccion: '', activo: true })}
+          className="min-h-11 px-4"
+        >
+          <Plus size={16} strokeWidth={2} aria-hidden="true" />
+          Agregar
+        </Button>
+      </div>
+      <ul className="mt-3 divide-y divide-line">
+        {sucursales.map((l) => (
+          <li key={l.id} className={`flex items-center gap-3 py-2.5 ${l.activo ? '' : 'opacity-50'}`}>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate font-semibold">{l.nombre}</span>
+              <span className="text-sm text-mute-ink">
+                {l.direccion || 'Sin dirección'}
+                {!l.activo && ' · cerrado'}
+              </span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setEditar(l)}
+              aria-label={`Editar ${l.nombre}`}
+              className="grid size-11 place-items-center rounded-full hover:bg-ink/5"
+            >
+              <Pencil size={16} strokeWidth={1.8} />
+            </button>
+          </li>
+        ))}
+      </ul>
+      <LocalForm local={editar} onClose={() => setEditar(null)} />
+    </section>
+  )
+}
+
+function LocalForm({ local, onClose }) {
+  const { run } = useApp()
+  const [values, setValues] = useState(null)
+  const [error, setError] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const v = values ?? local
+  const set = (f) => (value) => setValues({ ...v, [f]: value })
+  const close = () => {
+    setValues(null)
+    setError(null)
+    onClose()
+  }
+  return (
+    <Modal open={Boolean(local)} title={local?.id ? 'Editar local' : 'Nuevo local'} onClose={close}>
+      {v && (
+        <form
+          noValidate
+          className="space-y-5"
+          onSubmit={async (e) => {
+            e.preventDefault()
+            if (!String(v.nombre).trim()) return setError('Escribí el nombre del local.')
+            setBusy(true)
+            const { ok } = await run('guardarSucursal', { sucursal: v }, 'Local guardado')
+            setBusy(false)
+            if (ok) close()
+          }}
+        >
+          <Field id="l-nombre" label="Nombre" hint="Corto: es lo que se ve en el selector de local.">
+            <input
+              id="l-nombre"
+              maxLength={40}
+              value={v.nombre}
+              onChange={(e) => set('nombre')(e.target.value)}
+              className={inputClass}
+            />
+          </Field>
+          <Field id="l-direccion" label="Dirección" optional>
+            <input
+              id="l-direccion"
+              maxLength={120}
+              value={v.direccion}
+              onChange={(e) => set('direccion')(e.target.value)}
+              className={inputClass}
+            />
+          </Field>
+          {v.id && (
+            <Switch
+              checked={v.activo}
+              onChange={set('activo')}
+              label="Abierto (si lo cerrás, no se puede vender ni mandar mercadería ahí; el historial queda)"
+            />
+          )}
+          <ErrorText>{error}</ErrorText>
+          <Button type="submit" busy={busy} className="w-full">
+            Guardar
+          </Button>
+        </form>
+      )}
+    </Modal>
+  )
+}
+
 function Usuarios() {
   const { usuario } = useApp()
   const { data } = useData('usuarios')
@@ -241,12 +351,15 @@ function Usuarios() {
             Usuarios
           </h2>
           <p className="text-sm text-mute-ink">
-            Los empleados registran ventas y cargan stock. No ven costos, caja ni finanzas.
+            Encargado: maneja su local (stock, traspasos, caja y ventas del local). Vendedor: registra ventas e ingresa
+            mercadería en su local. Ninguno de los dos ve costos ni finanzas.
           </p>
         </div>
         <Button
           variant="secondary"
-          onClick={() => setEditar({ nombre: '', email: '', rol: 'empleado', activo: true, password: '' })}
+          onClick={() =>
+            setEditar({ nombre: '', email: '', rol: 'vendedor', sucursal_id: '', activo: true, password: '' })
+          }
           className="min-h-11 px-4"
         >
           <Plus size={16} strokeWidth={2} aria-hidden="true" />
@@ -262,7 +375,8 @@ function Usuarios() {
                 {u.id === usuario.id && ' (vos)'}
               </span>
               <span className="text-sm text-mute-ink">
-                {u.email} · {u.rol === 'dueno' ? 'Dueño' : 'Empleado'}
+                {u.email} · {ROLES[u.rol]}
+                {u.sucursal && ` en ${u.sucursal}`}
                 {!u.activo && ' · desactivado'}
               </span>
             </span>
@@ -283,7 +397,7 @@ function Usuarios() {
 }
 
 function UsuarioForm({ user, onClose }) {
-  const { run, usuario } = useApp()
+  const { run, usuario, activas } = useApp()
   const [values, setValues] = useState(null)
   const [error, setError] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -303,6 +417,7 @@ function UsuarioForm({ user, onClose }) {
           className="space-y-5"
           onSubmit={async (e) => {
             e.preventDefault()
+            if (v.rol !== 'dueno' && !v.sucursal_id) return setError('Elegí el local donde trabaja.')
             if (!v.id && String(v.password).length < 8)
               return setError('La contraseña inicial tiene que tener al menos 8 caracteres.')
             setBusy(true)
@@ -340,10 +455,28 @@ function UsuarioForm({ user, onClose }) {
               value={v.rol}
               onChange={set('rol')}
               options={[
-                { value: 'empleado', label: 'Empleado' },
+                { value: 'vendedor', label: 'Vendedor' },
+                { value: 'encargado', label: 'Encargado' },
                 { value: 'dueno', label: 'Dueño (ve todo)' },
               ]}
             />
+          )}
+          {v.rol !== 'dueno' && (
+            <Field id="u-local" label="Trabaja en">
+              <select
+                id="u-local"
+                value={v.sucursal_id ?? ''}
+                onChange={(e) => set('sucursal_id')(e.target.value)}
+                className={selectClass}
+              >
+                <option value="">Elegí el local</option>
+                {activas.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.nombre}
+                  </option>
+                ))}
+              </select>
+            </Field>
           )}
           <Field
             id="u-pass"
