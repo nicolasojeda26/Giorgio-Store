@@ -471,3 +471,36 @@ test('QA: si el local del vendedor se cierra, recibe un aviso claro', async () =
   assert.equal(r.body.error.code, 'local_cerrado')
   await s.dueno.ok('guardarSucursal', { sucursal: { id: centro, nombre: 'Irigoyen', activo: true } })
 })
+
+test('recuperar contraseña: solo el dueño, con el código de configuración; cierra sus otras sesiones', async () => {
+  const c = client(s.deps, { ip: '7.7.7.7' })
+  const mal = await c.call('recuperar', { email: 'giorgio@mail.com', codigo: 'otro', password: 'nueva-clave-1' })
+  assert.deepEqual([mal.status, mal.body.error.code], [401, 'recuperar'])
+  // Un encargado no puede usarlo aunque tenga el código: mismo mensaje.
+  const enc = await c.call('recuperar', {
+    email: 'laura@mail.com',
+    codigo: CONFIG.setupCode,
+    password: 'nueva-clave-1',
+  })
+  assert.equal(enc.body.error.code, 'recuperar')
+  const corta = await c.call('recuperar', { email: 'giorgio@mail.com', codigo: CONFIG.setupCode, password: '123' })
+  assert.equal(corta.body.error.code, 'contrasena')
+  const ok = await c.ok('recuperar', { email: 'Giorgio@Mail.com', codigo: CONFIG.setupCode, password: 'nueva-clave-1' })
+  assert.equal(ok.usuario.rol, 'dueno')
+  assert.equal((await c.call('inicio')).status, 200)
+  assert.equal((await s.dueno.call('inicio')).status, 401)
+  const viejo = await client(s.deps, { ip: '8.8.8.8' }).call('ingresar', {
+    email: 'giorgio@mail.com',
+    password: 'clave-dueno-1',
+  })
+  assert.equal(viejo.status, 401)
+  await client(s.deps, { ip: '8.8.8.9' }).ok('ingresar', { email: 'giorgio@mail.com', password: 'nueva-clave-1' })
+})
+
+test('recuperar contraseña: límite de intentos', async () => {
+  const c = client(s.deps, { ip: '9.9.9.9' })
+  for (let i = 0; i < 10; i++)
+    await c.call('recuperar', { email: 'giorgio@mail.com', codigo: 'x', password: '12345678' })
+  const r = await c.call('recuperar', { email: 'giorgio@mail.com', codigo: CONFIG.setupCode, password: '12345678' })
+  assert.equal(r.status, 429)
+})

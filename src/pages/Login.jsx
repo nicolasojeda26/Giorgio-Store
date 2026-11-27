@@ -9,12 +9,20 @@ export default function Login() {
   const [values, setValues] = useState({ codigo: '', nombre: '', email: '', password: '', repetir: '' })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(null)
+  // El dueño que se olvidó la contraseña pone una nueva con el código de configuración.
+  const [recuperar, setRecuperar] = useState(false)
+  const nueva = primerUso || recuperar
   const set = (field) => (e) => setValues((prev) => ({ ...prev, [field]: e.target.value }))
+  const cambiarModo = (valor) => {
+    setRecuperar(valor)
+    setError(null)
+    setValues((prev) => ({ ...prev, codigo: '', password: '', repetir: '' }))
+  }
 
   async function onSubmit(event) {
     event.preventDefault()
     if (bootError) return window.location.reload()
-    if (primerUso && values.password !== values.repetir) return setError('Las dos contraseñas no coinciden.')
+    if (nueva && values.password !== values.repetir) return setError('Las dos contraseñas no coinciden.')
     setBusy(true)
     setError(null)
     try {
@@ -22,6 +30,12 @@ export default function Login() {
         await login('primerUsuario', {
           codigo: values.codigo.trim(),
           nombre: values.nombre.trim(),
+          email: values.email.trim(),
+          password: values.password,
+        })
+      } else if (recuperar) {
+        await login('recuperar', {
+          codigo: values.codigo.trim(),
           email: values.email.trim(),
           password: values.password,
         })
@@ -52,7 +66,7 @@ export default function Login() {
           <p className="eyebrow mt-4 text-gold">Stock y finanzas</p>
         </div>
         <form onSubmit={onSubmit} className="mt-10 rounded-md bg-paper p-6 text-ink md:p-8">
-          <h1 className="text-[2rem]">{primerUso ? 'Crear usuario' : 'Ingresar'}</h1>
+          <h1 className="text-[2rem]">{primerUso ? 'Crear usuario' : recuperar ? 'Nueva contraseña' : 'Ingresar'}</h1>
           {bootError ? (
             <>
               <p role="alert" className="mt-3 flex gap-2 text-danger">
@@ -71,8 +85,14 @@ export default function Login() {
                   sistema.
                 </p>
               )}
+              {recuperar && (
+                <p className="mt-3 text-mute-ink">
+                  Para el dueño: escribí tu email, el código de configuración (el SETUP_CODE de Vercel) y una contraseña
+                  nueva. Si sos encargado o vendedor, pedile al dueño que te la cambie.
+                </p>
+              )}
               <div className="mt-6 space-y-5">
-                {primerUso &&
+                {nueva &&
                   input('codigo', 'Código de configuración', { autoComplete: 'one-time-code', spellCheck: false })}
                 {primerUso && input('nombre', 'Tu nombre', { autoComplete: 'name' })}
                 {input('email', 'Email', {
@@ -83,12 +103,11 @@ export default function Login() {
                 })}
                 {input(
                   'password',
-                  'Contraseña',
-                  { type: 'password', autoComplete: primerUso ? 'new-password' : 'current-password' },
-                  primerUso ? 'Al menos 8 caracteres.' : undefined,
+                  recuperar ? 'Contraseña nueva' : 'Contraseña',
+                  { type: 'password', autoComplete: nueva ? 'new-password' : 'current-password' },
+                  nueva ? 'Al menos 8 caracteres.' : undefined,
                 )}
-                {primerUso &&
-                  input('repetir', 'Repetí la contraseña', { type: 'password', autoComplete: 'new-password' })}
+                {nueva && input('repetir', 'Repetí la contraseña', { type: 'password', autoComplete: 'new-password' })}
               </div>
               <div role="alert">
                 {error && (
@@ -99,8 +118,17 @@ export default function Login() {
                 )}
               </div>
               <Button type="submit" busy={busy} className="mt-6 w-full">
-                {primerUso ? 'Crear usuario y entrar' : 'Ingresar'}
+                {primerUso ? 'Crear usuario y entrar' : recuperar ? 'Cambiar contraseña y entrar' : 'Ingresar'}
               </Button>
+              {!primerUso && (
+                <button
+                  type="button"
+                  onClick={() => cambiarModo(!recuperar)}
+                  className="mt-4 min-h-11 w-full text-sm font-semibold text-mute-ink underline underline-offset-4 hover:text-ink"
+                >
+                  {recuperar ? 'Volver a ingresar' : '¿Olvidaste tu contraseña?'}
+                </button>
+              )}
             </>
           )}
         </form>

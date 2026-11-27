@@ -90,6 +90,7 @@ export async function handleRpc(request, { config, sql }) {
   try {
     if (body.action === 'primerUsuario') return await primerUsuario(request, body, { config, sql })
     if (body.action === 'ingresar') return await ingresar(request, body, sql)
+    if (body.action === 'recuperar') return await recuperar(request, body, { config, sql })
 
     const usuario = await currentUser(request, sql)
     if (!usuario) return fail('sesion', 'Tu sesión terminó. Volvé a ingresar.', 401)
@@ -170,6 +171,34 @@ async function ingresar(request, { email, password }, sql) {
     await recordFailure(sql, keys)
     return fail('credenciales', 'El email o la contraseña no coinciden.', 401)
   }
+  return openSession(request, sql, user)
+}
+
+/**
+ * El dueño se olvidó la contraseña: con su email y el código de configuración de Vercel (SETUP_CODE) pone una
+ * nueva. Solo para usuarios dueño (a los empleados se la cambia el dueño). Cierra todas sus sesiones y entra.
+ */
+async function recuperar(request, { email, codigo, password }, { config, sql }) {
+  if (!config.setupCode) return fail('sin_codigo', 'Falta cargar SETUP_CODE en Vercel.', 503)
+  const cleanEmail = normalizeEmail(email)
+  const keys = [`recuperar:${cleanEmail}`, `ip:${clientIp(request)}`]
+  const [byEmail, byIp] = await Promise.all(keys.map((key) => recentFailures(sql, key)))
+  if (byEmail >= LIMITS.email || byIp >= LIMITS.ip) {
+    return fail('intentos', 'Demasiados intentos. Esperá 15 minutos y probá de nuevo.', 429)
+  }
+  const [user] = await sql.query(
+    "select id, nombre, email, rol, sucursal_id from usuarios where email = $1 and activo and rol = 'dueno'",
+    [cleanEmail],
+  )
+  // Mismo mensaje si el email no es de un dueño o si el código está mal: no se revela qué falló.
+  if (!user || !safeEqual(String(codigo ?? '').trim(), config.setupCode)) {
+    await recordFailure(sql, keys)
+    return fail('recuperar', 'El email o el código de configuración no coinciden.', 401)
+  }
+  const weak = weakPassword(password)
+  if (weak) return weak
+  await sql.query('update usuarios set password_hash = $2 where id = $1', [user.id, await hashPassword(password)])
+  await sql.query('delete from sesiones where usuario_id = $1', [user.id])
   return openSession(request, sql, user)
 }
 
